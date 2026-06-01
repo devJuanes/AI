@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getDb } from '../db/matu.js'
 import { toPublicChatMessage, toPublicChatSession, type ChatMessagePublic } from '../db/types.js'
 import { newId } from '../lib/id.js'
-import { matuUpdate } from '../lib/matu-query.js'
+import { matuDelete, matuUpdate } from '../lib/matu-query.js'
 import { requireJwt } from '../middleware/auth.js'
 
 const MAX_SESSIONS_PER_USER = 50
@@ -41,22 +41,23 @@ async function assertSessionOwner(sessionId: string, userId: string) {
 
 async function replaceSessionMessages(sessionId: string, messages: ChatMessagePublic[]) {
   const db = getDb()
-  const { error: delError } = await db.from('ai_chat_messages').delete().eq('session_id', sessionId)
+  const { error: delError } = await matuDelete(db, 'ai_chat_messages', { session_id: sessionId })
   if (delError) throw new Error(delError.message)
 
   if (!messages.length) return
 
-  const rows = messages.map((m, position) => ({
-    id: m.id,
-    session_id: sessionId,
-    role: m.role,
-    content: m.content,
-    reasoning: m.reasoning ?? null,
-    position,
-  }))
-
-  const { error: insError } = await db.from('ai_chat_messages').insert(rows)
-  if (insError) throw new Error(insError.message)
+  for (const [position, m] of messages.entries()) {
+    const row = {
+      id: m.id,
+      session_id: sessionId,
+      role: m.role,
+      content: m.content,
+      ...(m.reasoning != null ? { reasoning: m.reasoning } : {}),
+      position,
+    }
+    const { error: insError } = await db.from('ai_chat_messages').insert(row)
+    if (insError) throw new Error(insError.message)
+  }
 }
 
 async function pruneOldSessions(userId: string) {
@@ -71,7 +72,7 @@ async function pruneOldSessions(userId: string) {
 
   const toRemove = rows.slice(MAX_SESSIONS_PER_USER).map((r: { id: string }) => r.id)
   for (const id of toRemove) {
-    await db.from('ai_chat_sessions').delete().eq('id', id).eq('user_id', userId)
+    await matuDelete(db, 'ai_chat_sessions', { id, user_id: userId })
   }
 }
 
@@ -243,7 +244,7 @@ export async function chatSessionsRoutes(app: FastifyInstance) {
       })
     }
 
-    const { error } = await db.from('ai_chat_sessions').delete().eq('id', id).eq('user_id', request.user.sub)
+    const { error } = await matuDelete(db, 'ai_chat_sessions', { id, user_id: request.user.sub })
     if (error) {
       return reply.code(500).send({
         error: { message: error.message, type: 'database_error' },

@@ -206,8 +206,8 @@ async function persistSession(sessionId: string) {
   try {
     await syncChatSession(payload, model.value)
     sessions.value = [...sessions.value].sort((a, b) => b.updatedAt - a.updatedAt)
-  } catch {
-    error.value = 'No se pudo guardar la conversación'
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'No se pudo guardar la conversación'
   }
 }
 
