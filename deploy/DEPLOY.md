@@ -140,29 +140,40 @@ sudo cp -r dashboard/dist/. /var/www/matu-ai/chat/dist/
 sudo chown -R www-data:www-data /var/www/matu-ai
 ```
 
-## 8. Nginx
+## 8. Nginx + SSL
 
-```bash
-sudo cp deploy/nginx/api.matubyte.com.conf /etc/nginx/sites-available/
-sudo cp deploy/nginx/chat.matubyte.com.conf /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/api.matubyte.com.conf /etc/nginx/sites-enabled/
-sudo ln -sf /etc/nginx/sites-available/chat.matubyte.com.conf /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+**Importante:** ambos subdominios deben tener registro DNS **A** → IP del VPS antes de SSL:
+
+```
+api.matubyte.com   →  83.171.248.29
+chat.matubyte.com  →  83.171.248.29
 ```
 
-### SSL (Let's Encrypt)
+Comprobar:
 
 ```bash
-sudo certbot --nginx -d api.matubyte.com -d chat.matubyte.com
-sudo nginx -t && sudo systemctl reload nginx
+dig +short api.matubyte.com
+dig +short chat.matubyte.com
 ```
 
-Si certbot pide uno por uno:
+Las configs Nginx arrancan **solo en HTTP** (sin certificados). Certbot añade HTTPS:
 
 ```bash
-sudo certbot --nginx -d api.matubyte.com
-sudo certbot --nginx -d chat.matubyte.com
+cd ~/apps/matu-ai
+git pull
+sudo bash deploy/setup-ssl.sh
+```
+
+Si `api.matubyte.com` aún no tiene DNS, SSL solo para chat:
+
+```bash
+sudo certbot --nginx -d chat.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
+```
+
+Cuando exista el DNS de `api`:
+
+```bash
+sudo certbot --nginx -d api.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
 ```
 
 ## 9. Verificación final
