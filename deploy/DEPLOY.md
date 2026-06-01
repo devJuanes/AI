@@ -184,3 +184,4 @@ bash deploy.sh
 | 502 en api | `pm2 logs matu-ai-api` — revisar `.env` y MatuDB |
 | Ollama down | `systemctl status ollama` + `ollama list` |
 | SSL / "Not secure" | `sudo bash deploy/fix-ssl.sh` — emite cert `matu-ai` para chat + ai |
+| duplicate upstream matu_ai_api | `sudo rm /etc/nginx/sites-enabled/api.matubyte.com.conf` y vuelve a ejecutar fix-ssl |

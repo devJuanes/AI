@@ -10,11 +10,14 @@ CERT_NAME="matu-ai"
 DOMAINS=(-d chat.matubyte.com -d ai.matubyte.com)
 
 echo "==> 1/4 Nginx HTTP (sin SSL) para que certbot pueda validar"
+# Quitar configs legacy (api.matubyte.com duplicaba upstream matu_ai_api)
+rm -f /etc/nginx/sites-enabled/api.matubyte.com.conf
+rm -f /etc/nginx/sites-enabled/default
 cp deploy/nginx/chat.matubyte.com.http.conf /etc/nginx/sites-available/chat.matubyte.com.conf
 cp deploy/nginx/ai.matubyte.com.http.conf /etc/nginx/sites-available/ai.matubyte.com.conf
 ln -sf /etc/nginx/sites-available/chat.matubyte.com.conf /etc/nginx/sites-enabled/
 ln -sf /etc/nginx/sites-available/ai.matubyte.com.conf /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
+echo "   sites-enabled: $(ls -1 /etc/nginx/sites-enabled/)"
 nginx -t
 systemctl reload nginx
 echo "✓ HTTP OK"
@@ -30,8 +33,11 @@ fi
 echo "✓ Certificado en /etc/letsencrypt/live/$CERT_NAME/"
 
 echo "==> 3/4 Nginx HTTPS (configs del repo)"
+rm -f /etc/nginx/sites-enabled/api.matubyte.com.conf
 cp deploy/nginx/chat.matubyte.com.conf /etc/nginx/sites-available/
 cp deploy/nginx/ai.matubyte.com.conf /etc/nginx/sites-available/
+ln -sf /etc/nginx/sites-available/chat.matubyte.com.conf /etc/nginx/sites-enabled/
+ln -sf /etc/nginx/sites-available/ai.matubyte.com.conf /etc/nginx/sites-enabled/
 nginx -t
 systemctl reload nginx
 echo "✓ HTTPS OK"
