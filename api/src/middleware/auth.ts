@@ -76,7 +76,7 @@ async function authenticateApiKey(request: FastifyRequest, reply: FastifyReply, 
     return authError(
       reply,
       request,
-      'Insufficient balance. Add credits at https://ai.matubyte.com/dashboard/billing',
+      'Insufficient balance. Add credits at https://chat.matubyte.com/dashboard/billing',
     )
   }
 
@@ -89,7 +89,7 @@ export async function requireApiKey(request: FastifyRequest, reply: FastifyReply
     return authError(
       reply,
       request,
-      'Incorrect API key provided. You can find your API key at https://ai.matubyte.com/dashboard.',
+      'Incorrect API key provided. You can find your API key at https://chat.matubyte.com/dashboard.',
     )
   }
 
@@ -103,7 +103,7 @@ export async function requireApiKeyOrJwt(request: FastifyRequest, reply: Fastify
     return authError(
       reply,
       request,
-      'Incorrect API key provided. You can find your API key at https://ai.matubyte.com/dashboard.',
+      'Incorrect API key provided. You can find your API key at https://chat.matubyte.com/dashboard.',
     )
   }
 
@@ -118,7 +118,7 @@ export async function requireApiKeyOrJwt(request: FastifyRequest, reply: Fastify
     return authError(
       reply,
       request,
-      'Incorrect API key provided. You can find your API key at https://ai.matubyte.com/dashboard.',
+      'Incorrect API key provided. You can find your API key at https://chat.matubyte.com/dashboard.',
     )
   }
 }

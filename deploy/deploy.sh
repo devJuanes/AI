@@ -48,8 +48,8 @@ fi
 # shellcheck disable=SC1091
 source "$ROOT/.env"
 
-if [[ "${VITE_API_URL:-}" == *"api.matubyte.com"* ]] && ! getent hosts api.matubyte.com >/dev/null 2>&1; then
-  echo "AVISO: api.matubyte.com no resuelve en DNS. Usa VITE_API_URL=https://chat.matubyte.com"
+if [[ "${VITE_API_URL:-}" == *"ai.matubyte.com"* ]] && ! getent hosts ai.matubyte.com >/dev/null 2>&1; then
+  echo "AVISO: ai.matubyte.com no resuelve en DNS. Configura el registro A antes del build."
 fi
 
 if [[ $DO_PULL -eq 1 ]]; then
@@ -98,10 +98,10 @@ else
 fi
 
 if command -v systemctl &>/dev/null && systemctl is-active --quiet nginx 2>/dev/null; then
-  if curl -sf "https://chat.matubyte.com/health" >/dev/null 2>&1; then
-    echo "OK  https://chat.matubyte.com/health"
+  if curl -sf "https://ai.matubyte.com/health" >/dev/null 2>&1; then
+    echo "OK  https://ai.matubyte.com/health"
   else
-    echo "AVISO: nginx activo pero https://chat.matubyte.com/health no respondió"
+    echo "AVISO: nginx activo pero https://ai.matubyte.com/health no respondió"
   fi
 fi
 

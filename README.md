@@ -4,6 +4,7 @@
 </p>
 
 <p align="center">
+  <a href="https://chat.matubyte.com">chat.matubyte.com</a> ·
   <a href="https://ai.matubyte.com">ai.matubyte.com</a> ·
   <a href="https://github.com/devJuanes/AI">GitHub</a>
 </p>
@@ -16,7 +17,7 @@
 
 | URL | Uso |
 |-----|-----|
-| **https://ai.matubyte.com** | Panel, chat, documentación |
+| **https://chat.matubyte.com** | Panel, chat, documentación |
 | **https://ai.matubyte.com/v1** | API (`/v1/*`) |
 | **https://ai.matubyte.com/api** | Auth y dashboard backend |
 
@@ -67,21 +68,18 @@ Autenticación: `Authorization: Bearer mai_live_...`
 ## Despliegue en VPS
 
 ```bash
-git clone https://github.com/devJuanes/AI.git
-cd AI
-cp .env.example .env   # VITE_API_URL=https://ai.matubyte.com
+cp .env.example .env   # CORS_ORIGIN=chat, VITE_API_URL=https://ai.matubyte.com
 npm ci && npm run db:setup && npm run build
 pm2 start ecosystem.config.cjs
-# Nginx: deploy/nginx/ai.matubyte.com.conf
+# Nginx: deploy/nginx/chat.matubyte.com.conf + ai.matubyte.com.conf
 ```
 
 Guía completa: **[deploy/DEPLOY.md](./deploy/DEPLOY.md)**
 
 ## Documentación
 
-- **Web:** https://ai.matubyte.com/docs
+- **Web:** https://chat.matubyte.com/docs
 - [docs/OPENAI-API.md](./docs/OPENAI-API.md)
-- [docs/MATUDB-INTEGRATION.md](./docs/MATUDB-INTEGRATION.md)
 
 ## Licencia
 

@@ -1,4 +1,4 @@
-import { MATU_API_BASE, MATU_SITE_ORIGIN } from '../lib/matu-urls'
+import { MATU_API_BASE, MATU_CHAT_ORIGIN } from '../lib/matu-urls'
 
 export interface DocSection {
   id: string
@@ -16,7 +16,7 @@ export type DocBlock =
 /** Base URL v1 para ejemplos en documentación */
 export const API_BASE = MATU_API_BASE
 /** Sitio web (dashboard, docs, chat) */
-export const SITE_URL = MATU_SITE_ORIGIN
+export const SITE_URL = MATU_CHAT_ORIGIN
 
 export const docSections: DocSection[] = [
   {
@@ -30,7 +30,7 @@ export const docSections: DocSection[] = [
       {
         type: 'callout',
         variant: 'info',
-        text: `Base URL de la API: ${MATU_API_BASE} — Panel, chat y documentación en ${MATU_SITE_ORIGIN}`,
+        text: `Base URL de la API: ${MATU_API_BASE} — Panel, chat y documentación en ${MATU_CHAT_ORIGIN}`,
       },
       {
         type: 'ul',

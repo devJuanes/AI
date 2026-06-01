@@ -1,11 +1,11 @@
 # Matu AI API — MatuByte
 
 Base URL: `https://ai.matubyte.com/v1`  
-Panel, chat y documentación: `https://ai.matubyte.com`
+Panel, chat y documentación: `https://chat.matubyte.com`
 
 Autenticación: header `Authorization: Bearer mai_live_...`
 
-Las llamadas con API Key consumen saldo prepago. Recarga en Dashboard → Facturación.
+Las llamadas con API Key consumen saldo prepago. Recarga en https://chat.matubyte.com/dashboard/billing
 
 ## Endpoints
 
@@ -30,35 +30,4 @@ curl https://ai.matubyte.com/v1/chat/completions \
   }'
 ```
 
-Parámetros habituales:
-
-| Parámetro | Tipo | Notas |
-|-----------|------|-------|
-| `model` | string | Requerido |
-| `messages` | array | system, user, assistant |
-| `stream` | boolean | SSE |
-| `temperature` | number | 0 – 2 |
-| `max_tokens` | number | Límite de salida |
-| `response_format` | object | `{ "type": "json_object" }` |
-
-## Ejemplo fetch (TypeScript)
-
-```typescript
-const res = await fetch('https://ai.matubyte.com/v1/chat/completions', {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${process.env.MATU_AI_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    model: 'llama3.2',
-    messages: [{ role: 'user', content: 'Hola' }],
-  }),
-})
-```
-
-## Errores
-
-Respuesta JSON con campo `error.message`. Códigos HTTP comunes: 401 (key inválida o saldo), 400 (parámetros), 404 (modelo), 503 (Ollama caído).
-
-Documentación web: https://ai.matubyte.com/docs
+Documentación web: https://chat.matubyte.com/docs

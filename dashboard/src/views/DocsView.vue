@@ -66,7 +66,7 @@ function scrollTo(id: string) {
             <span class="text-emerald-600">{{ API_BASE }}</span>
           </div>
           <div class="rounded-xl bg-matu-surface border border-matu-border px-4 py-3 font-mono text-sm">
-            <span class="text-matu-muted">Sitio </span>
+            <span class="text-matu-muted">Panel </span>
             <span class="text-matu-blue">{{ SITE_URL }}</span>
           </div>
         </div>

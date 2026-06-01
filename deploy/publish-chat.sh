@@ -13,11 +13,7 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-if ! getent hosts api.matubyte.com >/dev/null 2>&1; then
-  export VITE_API_URL="https://chat.matubyte.com"
-else
-  export VITE_API_URL="${VITE_API_URL:-https://chat.matubyte.com}"
-fi
+export VITE_API_URL="${VITE_API_URL:-https://ai.matubyte.com}"
 
 echo "Build dashboard (VITE_API_URL=$VITE_API_URL)..."
 npm run build --workspace=dashboard

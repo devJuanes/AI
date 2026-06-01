@@ -69,7 +69,7 @@ app.get('/health', async () => {
     openai_compatible: true,
     ollama,
     matudb,
-    docs: 'https://ai.matubyte.com/docs',
+    docs: 'https://chat.matubyte.com/docs',
     default_chat_model: config.defaultChatModel,
   }
 })
@@ -78,7 +78,7 @@ app.get('/', async () => ({
   name: 'Matu AI API',
   url: 'https://ai.matubyte.com',
   api_base: 'https://ai.matubyte.com/v1',
-  dashboard: 'https://ai.matubyte.com',
+  dashboard: 'https://chat.matubyte.com',
   endpoints: {
     v1: {
       models: 'GET /v1/models',

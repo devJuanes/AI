@@ -1,26 +1,28 @@
-# Despliegue Matu AI — ai.matubyte.com
+# Despliegue Matu AI — chat.matubyte.com + ai.matubyte.com
 
 ## Arquitectura
 
 | Componente | URL | Nginx / proceso |
 |------------|-----|-----------------|
-| **Frontend** (docs, login, API keys, chat) | `https://ai.matubyte.com` | Nginx → `/var/www/matu-ai/chat/dist` |
-| **API v1** | `https://ai.matubyte.com/v1` | Nginx proxy → PM2 `:3001` |
+| **Frontend** (docs, login, chat, dashboard) | `https://chat.matubyte.com` | Nginx → `/var/www/matu-ai/chat/dist` |
+| **API v1** | `https://ai.matubyte.com/v1` | Nginx → PM2 `:3001` |
 | **Auth dashboard** | `https://ai.matubyte.com/api` | Mismo backend |
 | **Health** | `https://ai.matubyte.com/health` | Mismo backend |
 | **MatuDB** | `https://db.matudb.com` | Remoto |
 | **Ollama** | `http://127.0.0.1:11434` | Local en el VPS |
 
 ```
-ai.matubyte.com  ──►  Vue SPA + proxy /api y /v1  ──►  Fastify API  ──►  Ollama + MatuDB
+chat.matubyte.com  ──►  Vue SPA (llama a ai.matubyte.com)
+ai.matubyte.com    ──►  Fastify API  ──►  Ollama + MatuDB
 ```
 
 ## DNS
 
-Registro **A** apuntando a la IP del VPS:
+Registros **A** apuntando a la IP del VPS:
 
 ```
-ai.matubyte.com  →  IP del servidor
+chat.matubyte.com  →  IP del servidor
+ai.matubyte.com    →  IP del servidor
 ```
 
 ---
@@ -57,8 +59,6 @@ cd matu-ai
 
 ```bash
 node -v   # debe ser >= 20
-# Si no: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-#        sudo apt install -y nodejs
 ```
 
 ## 3. Variables de entorno
@@ -82,9 +82,9 @@ OLLAMA_TIMEOUT_MS=300000
 
 API_PORT=3001
 API_HOST=0.0.0.0
-CORS_ORIGIN=https://ai.matubyte.com
+CORS_ORIGIN=https://chat.matubyte.com
 
-# El frontend llama a la API en otro subdominio
+# Frontend en chat; API en ai
 VITE_API_URL=https://ai.matubyte.com
 ```
 
@@ -104,37 +104,15 @@ npm run build
 curl -fsSL https://ollama.com/install.sh | sh
 sudo systemctl enable ollama
 sudo systemctl start ollama
-
-# Modelo liviano con razonamiento (~2.5 GB RAM en Q4)
 ollama pull qwen3:4b
-
-# Límites para VPS 6 vCPU / 12 GB (evita saturar CPU con runners duplicados)
 bash deploy/tune-ollama.sh
-
-curl http://127.0.0.1:11434/api/tags
 ```
-
-En `.env` del API:
-
-```env
-DEFAULT_CHAT_MODEL=qwen3:4b
-```
-
-Si el servidor quedó saturado, reinicia Ollama: `systemctl restart ollama`.
 
 ## 6. PM2 (solo la API)
 
 ```bash
 bash deploy/start-api.sh
-# o manualmente:
-# pm2 start ecosystem.config.cjs
-# pm2 save
-pm2 startup   # ejecuta el comando que te muestre (copiar/pegar)
-```
-
-Comprobar API local:
-
-```bash
+pm2 startup
 curl http://127.0.0.1:3001/health
 ```
 
@@ -144,36 +122,23 @@ curl http://127.0.0.1:3001/health
 bash deploy/publish-chat.sh
 ```
 
-O manualmente:
-
-```bash
-sudo mkdir -p /var/www/matu-ai/chat
-sudo cp -r dashboard/dist/. /var/www/matu-ai/chat/dist/
-sudo chown -R www-data:www-data /var/www/matu-ai
-```
-
 ## 8. Nginx + SSL
 
-**Importante:** `ai.matubyte.com` debe tener registro DNS **A** → IP del VPS antes de SSL:
-
-```
-ai.matubyte.com  →  IP del servidor
-```
-
-Comprobar:
+Ambos subdominios deben tener DNS **A** → IP del VPS:
 
 ```bash
+dig +short chat.matubyte.com
 dig +short ai.matubyte.com
 ```
 
-Copiar config y obtener certificado:
-
 ```bash
 cd ~/apps/matu-ai
+sudo cp deploy/nginx/chat.matubyte.com.conf /etc/nginx/sites-available/
 sudo cp deploy/nginx/ai.matubyte.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/chat.matubyte.com.conf /etc/nginx/sites-enabled/
 sudo ln -sf /etc/nginx/sites-available/ai.matubyte.com.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d ai.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
+sudo certbot --nginx -d chat.matubyte.com -d ai.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
 ```
 
 ## 9. Verificación final
@@ -185,8 +150,8 @@ curl https://ai.matubyte.com/v1/models -H "Authorization: Bearer mai_live_TU_KEY
 
 Abrir en navegador:
 
-- https://ai.matubyte.com/docs — documentación
-- https://ai.matubyte.com/login — crear cuenta / API keys
+- https://chat.matubyte.com/docs — documentación
+- https://chat.matubyte.com/login — crear cuenta / API keys
 
 ## 10. Integrar en tus apps
 
@@ -208,37 +173,16 @@ const res = await fetch('https://ai.matubyte.com/v1/chat/completions', {
 
 ## Actualizar despliegue
 
-Desde la raíz del repo en el servidor:
-
 ```bash
 cd ~/apps/matu-ai
 bash deploy.sh
-```
-
-Opciones:
-
-```bash
-bash deploy.sh --no-pull    # sin git pull
-bash deploy.sh --skip-ci    # sin npm ci (más rápido)
-bash deploy.sh --ollama     # incluye tune Ollama + llama3.2:1b
-```
-
-Manual (equivalente):
-
-```bash
-cd ~/apps/matu-ai
-git pull
-npm ci
-npm run build --workspace=api
-pm2 restart matu-ai-api --update-env
-bash deploy/publish-chat.sh
 ```
 
 ## Troubleshooting
 
 | Problema | Solución |
 |----------|----------|
-| CORS error | `CORS_ORIGIN=https://ai.matubyte.com` en `.env` + `pm2 restart` |
+| CORS error | `CORS_ORIGIN=https://chat.matubyte.com` en `.env` + `pm2 restart` |
 | Frontend llama a localhost | Rebuild con `VITE_API_URL=https://ai.matubyte.com` |
 | 502 en api | `pm2 logs matu-ai-api` — revisar `.env` y MatuDB |
 | Ollama down | `systemctl status ollama` + `ollama list` |
