@@ -27,6 +27,26 @@ chat.matubyte.com  →  IP del servidor
 
 ---
 
+## 0. Dependencias del servidor (Ubuntu/Debian)
+
+Si `pm2`, `nginx` o `certbot` no existen, ejecuta **una vez**:
+
+```bash
+cd ~/apps/matu-ai
+sudo bash deploy/setup-server.sh
+```
+
+O manualmente:
+
+```bash
+sudo apt update
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo npm install -g pm2
+sudo systemctl enable nginx && sudo systemctl start nginx
+```
+
+---
+
 ## 1. Clonar en el servidor
 
 ```bash
@@ -93,10 +113,11 @@ curl http://127.0.0.1:11434/api/tags
 ## 6. PM2 (solo la API)
 
 ```bash
-npm install -g pm2
-pm2 start ecosystem.config.cjs
-pm2 save
-pm2 startup   # ejecuta el comando que te muestre
+bash deploy/start-api.sh
+# o manualmente:
+# pm2 start ecosystem.config.cjs
+# pm2 save
+pm2 startup   # ejecuta el comando que te muestre (copiar/pegar)
 ```
 
 Comprobar API local:
@@ -108,8 +129,14 @@ curl http://127.0.0.1:3001/health
 ## 7. Publicar frontend estático
 
 ```bash
+bash deploy/publish-chat.sh
+```
+
+O manualmente:
+
+```bash
 sudo mkdir -p /var/www/matu-ai/chat
-sudo cp -r dashboard/dist /var/www/matu-ai/chat/
+sudo cp -r dashboard/dist/. /var/www/matu-ai/chat/dist/
 sudo chown -R www-data:www-data /var/www/matu-ai
 ```
 
