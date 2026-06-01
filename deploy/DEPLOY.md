@@ -124,22 +124,19 @@ bash deploy/publish-chat.sh
 
 ## 8. Nginx + SSL
 
-Ambos subdominios deben tener DNS **A** → IP del VPS:
+Ambos subdominios deben tener DNS **A** → IP del VPS.
 
-```bash
-dig +short chat.matubyte.com
-dig +short ai.matubyte.com
-```
+**Importante:** no copies las configs HTTPS antes de tener el certificado. Usa el script que hace HTTP → certbot → HTTPS:
 
 ```bash
 cd ~/apps/matu-ai
-sudo cp deploy/nginx/chat.matubyte.com.conf /etc/nginx/sites-available/
-sudo cp deploy/nginx/ai.matubyte.com.conf /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/chat.matubyte.com.conf /etc/nginx/sites-enabled/
-sudo ln -sf /etc/nginx/sites-available/ai.matubyte.com.conf /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d chat.matubyte.com -d ai.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
+git pull
+sudo bash deploy/fix-ssl.sh
 ```
+
+El certificado queda en `/etc/letsencrypt/live/matu-ai/` y cubre **chat** + **ai**.
+
+Si el navegador dice "Not secure" pero la API funciona, casi siempre es certificado faltante o ruta incorrecta en nginx — vuelve a ejecutar `fix-ssl.sh`.
 
 ## 9. Verificación final
 
@@ -186,4 +183,4 @@ bash deploy.sh
 | Frontend llama a localhost | Rebuild con `VITE_API_URL=https://ai.matubyte.com` |
 | 502 en api | `pm2 logs matu-ai-api` — revisar `.env` y MatuDB |
 | Ollama down | `systemctl status ollama` + `ollama list` |
-| SSL | `sudo certbot renew --dry-run` |
+| SSL / "Not secure" | `sudo bash deploy/fix-ssl.sh` — emite cert `matu-ai` para chat + ai |

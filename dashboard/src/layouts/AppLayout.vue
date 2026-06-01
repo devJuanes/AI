@@ -91,14 +91,7 @@ const nav = [
     </main>
 
     <footer class="border-t border-matu-border py-6 text-center text-xs text-matu-muted">
-      Matu AI · MatuByte ·
-      <a
-        href="https://github.com/devJuanes/AI"
-        target="_blank"
-        rel="noopener"
-        class="hover:text-matu-blue transition"
-        >GitHub</a
-      >
+      Matu AI · powered by <a href="https://matubyte.com">MatuByte S.A.S.</a>
     </footer>
   </div>
 </template>

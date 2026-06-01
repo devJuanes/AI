@@ -44,13 +44,13 @@ onMounted(async () => {
 
     <main class="flex-1 flex flex-col items-center justify-center px-6 pb-24 pt-8">
       <p class="text-sm text-matu-muted mb-8 text-center">
-        IA local para MatuByte · API Matu AI
+        IA MatuByte · API Matu AI
       </p>
 
       <MatuLogo size="hero" class="mb-6" />
 
       <p class="text-matu-muted text-center mb-12 max-w-md">
-        Explora el chat web o integra modelos Ollama en tus aplicaciones.
+        Explora el chat web o integra modelos en tus aplicaciones.
       </p>
 
       <div class="grid sm:grid-cols-2 gap-5 w-full max-w-3xl">
@@ -75,14 +75,7 @@ onMounted(async () => {
     </main>
 
     <footer class="py-6 text-center text-xs text-matu-muted">
-      Matu AI · MatuByte ·
-      <a
-        href="https://github.com/devJuanes/AI"
-        target="_blank"
-        rel="noopener"
-        class="hover:text-matu-blue transition"
-        >GitHub</a
-      >
+      Matu AI · powered by <a target="_blank" href="https://matubyte.com">MatuByte S.A.S.</a>
     </footer>
   </div>
 </template>
