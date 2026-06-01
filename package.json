@@ -1,0 +1,21 @@
+{
+  "name": "matu-ai",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Matu AI — API profesional sobre Ollama para ai.matubyte.com",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:dashboard\"",
+    "dev:api": "npm run dev --workspace=api",
+    "dev:dashboard": "npm run dev --workspace=dashboard",
+    "build": "npm run build --workspace=api && npm run build --workspace=dashboard",
+    "start": "npm run start --workspace=api",
+    "db:setup": "npm run db:setup --workspace=api"
+  },
+  "workspaces": [
+    "api",
+    "dashboard"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
