@@ -4,7 +4,7 @@ export function supportsOllamaThinking(model: string): boolean {
   return m.includes('qwen3') || m.includes('deepseek-r1') || m.includes('qwq')
 }
 
-/** Extrae bloques  o  del texto */
+/** Extrae bloques think del texto completo */
 export function parseInlineThinking(raw: string): { reasoning: string; content: string } {
   const thinkRe = /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi
   let reasoning = ''

@@ -23,13 +23,76 @@ export type StreamPart =
   | { type: 'reasoning'; text: string }
   | { type: 'content'; text: string }
 
+const THINK_OPEN_RE = new RegExp('<think(?:ing)?>', 'i')
+const THINK_CLOSE_RE = new RegExp('<\\/think(?:ing)?>', 'i')
+
+/** Parsea tags think en streaming */
+export function createThinkStreamParser() {
+  let buffer = ''
+  let inThink = false
+
+  function* feed(chunk: string): Generator<StreamPart> {
+    buffer += chunk
+
+    while (buffer.length > 0) {
+      if (inThink) {
+        const endMatch = buffer.match(THINK_CLOSE_RE)
+        if (!endMatch || endMatch.index === undefined) {
+          if (buffer) yield { type: 'reasoning', text: buffer }
+          buffer = ''
+          break
+        }
+        const thinking = buffer.slice(0, endMatch.index)
+        if (thinking) yield { type: 'reasoning', text: thinking }
+        buffer = buffer.slice(endMatch.index + endMatch[0].length)
+        inThink = false
+        continue
+      }
+
+      const startMatch = buffer.match(THINK_OPEN_RE)
+      if (!startMatch || startMatch.index === undefined) {
+        const openIdx = buffer.indexOf('<')
+        if (openIdx === -1) {
+          if (buffer) yield { type: 'content', text: buffer }
+          buffer = ''
+          break
+        }
+        if (openIdx > 0) {
+          yield { type: 'content', text: buffer.slice(0, openIdx) }
+          buffer = buffer.slice(openIdx)
+        }
+        if (!THINK_OPEN_RE.test(buffer)) {
+          if (buffer) yield { type: 'content', text: buffer }
+          buffer = ''
+        }
+        continue
+      }
+
+      if (startMatch.index > 0) {
+        yield { type: 'content', text: buffer.slice(0, startMatch.index) }
+      }
+      buffer = buffer.slice(startMatch.index + startMatch[0].length)
+      inThink = true
+    }
+  }
+
+  function* flush(): Generator<StreamPart> {
+    if (!buffer) return
+    yield { type: inThink ? 'reasoning' : 'content', text: buffer }
+    buffer = ''
+    inThink = false
+  }
+
+  return { feed, flush }
+}
+
 export async function fetchDefaultModel(): Promise<string> {
   try {
     const res = await fetch(`${API_URL}/health`)
     const data = await res.json()
     if (data.default_chat_model) return data.default_chat_model as string
   } catch {
-    /* fallback local */
+    /* fallback */
   }
   return DEFAULT_MODEL
 }
@@ -48,16 +111,20 @@ export async function listModels(): Promise<string[]> {
   return models.map((m) => m.id)
 }
 
-export function parseInlineThinking(raw: string): { reasoning: string; content: string } {
-  const thinkRe = /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi
-  let reasoning = ''
-  let content = raw
-  let match: RegExpExecArray | null
-  while ((match = thinkRe.exec(raw)) !== null) {
-    reasoning += (reasoning ? '\n\n' : '') + match[1].trim()
-  }
-  content = raw.replace(thinkRe, '').trim()
-  return { reasoning, content }
+export function filterChatModels(models: string[]): string[] {
+  const blocked = /qwen|deepseek|qwq|r1:|\b70b\b|\b72b\b/i
+  const filtered = models.filter((m) => !blocked.test(m))
+  return filtered.length ? filtered : ['llama3.2:1b']
+}
+
+export function pickDefaultModel(available: string[], preferred: string): string {
+  const list = filterChatModels(available)
+  if (list.includes(preferred)) return preferred
+  const base = preferred.split(':')[0]
+  const match = list.find((m) => m === base || m.startsWith(`${base}:`))
+  if (match) return match
+  const tiny = list.find((m) => m.includes('1b'))
+  return tiny ?? list[0] ?? preferred
 }
 
 export async function* streamChatCompletion(
@@ -143,15 +210,4 @@ export function newSessionId() {
 export function titleFromMessage(text: string) {
   const t = text.trim().replace(/\s+/g, ' ')
   return t.length > 36 ? `${t.slice(0, 36)}…` : t || 'Nueva conversación'
-}
-
-export function pickDefaultModel(available: string[], preferred: string): string {
-  if (available.includes(preferred)) return preferred
-  const base = preferred.split(':')[0]
-  const match = available.find((m) => m === base || m.startsWith(`${base}:`))
-  if (match) return match
-  const qwen = available.find((m) => m.includes('qwen3'))
-  if (qwen) return qwen
-  const light = available.find((m) => m.includes('1b') || m.includes('3b') || m.includes('4b'))
-  return light ?? available[0] ?? preferred
 }

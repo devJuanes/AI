@@ -38,7 +38,7 @@ export async function chatRoutes(app: FastifyInstance) {
       )
     }
 
-    const messages = normalizeChatMessages(body.messages)
+    let messages = normalizeChatMessages(body.messages)
     const maxTokens = body.max_completion_tokens ?? body.max_tokens
     const options = toOllamaOptions({
       temperature: body.temperature,
@@ -50,6 +50,16 @@ export async function chatRoutes(app: FastifyInstance) {
       presence_penalty: body.presence_penalty,
     })
 
+    const isDashboard = apiKeyId === DASHBOARD_CHAT_KEY_ID
+
+    if (isDashboard) {
+      messages.unshift({
+        role: 'system',
+        content:
+          'Eres Matu AI. Responde siempre en español, de forma breve y útil. No incluyas razonamiento interno ni tags think en la respuesta.',
+      })
+    }
+
     const format = pickOllamaFormat(body.response_format)
     const ollamaBody: Record<string, unknown> = {
       model: body.model,
@@ -57,7 +67,7 @@ export async function chatRoutes(app: FastifyInstance) {
       stream: body.stream,
       options,
       ...(format ? { format } : {}),
-      ...(supportsOllamaThinking(body.model) ? { think: trackUsage } : {}),
+      ...(supportsOllamaThinking(body.model) ? { think: !isDashboard && trackUsage } : {}),
     }
 
     const promptText = messagesToPrompt(messages)

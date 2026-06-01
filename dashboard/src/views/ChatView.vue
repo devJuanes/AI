@@ -20,11 +20,12 @@ import { api, setToken, type User } from '../lib/api'
 import {
   type ChatMessage,
   type ChatSession,
+  createThinkStreamParser,
   fetchDefaultModel,
+  filterChatModels,
   listModels,
   loadSessions,
   newSessionId,
-  parseInlineThinking,
   pickDefaultModel,
   saveSessions,
   streamChatCompletion,
@@ -149,6 +150,8 @@ async function send() {
       abortCtrl.signal,
     )
 
+    const thinkParser = createThinkStreamParser()
+
     for await (const part of stream) {
       if (part.type === 'reasoning') {
         if (!assistantMsg.reasoning) {
@@ -157,16 +160,31 @@ async function send() {
         }
         assistantMsg.reasoning += part.text
       } else {
-        assistantMsg.content += part.text
+        for (const piece of thinkParser.feed(part.text)) {
+          if (piece.type === 'reasoning') {
+            if (!assistantMsg.reasoning) {
+              assistantMsg.reasoning = ''
+              assistantMsg.reasoningOpen = true
+            }
+            assistantMsg.reasoning += piece.text
+          } else {
+            assistantMsg.content += piece.text
+          }
+        }
       }
       messages.value = [...messages.value]
+      await scrollToBottom()
     }
 
-    if (assistantMsg.content) {
-      const parsed = parseInlineThinking(assistantMsg.content)
-      if (parsed.reasoning) {
-        assistantMsg.reasoning = (assistantMsg.reasoning ?? '') + parsed.reasoning
-        assistantMsg.content = parsed.content
+    for (const piece of thinkParser.flush()) {
+      if (piece.type === 'reasoning') {
+        if (!assistantMsg.reasoning) {
+          assistantMsg.reasoning = ''
+          assistantMsg.reasoningOpen = true
+        }
+        assistantMsg.reasoning += piece.text
+      } else {
+        assistantMsg.content += piece.text
       }
     }
 
@@ -209,7 +227,8 @@ onMounted(async () => {
     user.value = me.user
     sessions.value = loadSessions(me.user.id)
     const preferred = await fetchDefaultModel()
-    models.value = await listModels()
+    const all = await listModels()
+    models.value = filterChatModels(all)
     model.value = pickDefaultModel(models.value, preferred)
   } catch {
     router.push('/login')
