@@ -1,6 +1,11 @@
+import { DEFAULT_MODEL } from './constants'
+
 const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 const STORAGE_KEY = 'matu_playground_api_key'
+
+/** Respuestas cortas en pruebas — reduce tokens de completion */
+const PLAYGROUND_MAX_TOKENS = 128
 
 export function getPlaygroundApiKey(): string | null {
   return sessionStorage.getItem(STORAGE_KEY)
@@ -10,6 +15,8 @@ export function setPlaygroundApiKey(key: string | null) {
   if (key?.trim()) sessionStorage.setItem(STORAGE_KEY, key.trim())
   else sessionStorage.removeItem(STORAGE_KEY)
 }
+
+export { DEFAULT_MODEL as PLAYGROUND_MODEL }
 
 export interface PlaygroundMessage {
   role: 'user' | 'assistant'
@@ -25,7 +32,6 @@ export async function testApiKey(apiKey: string): Promise<boolean> {
 
 export async function* streamPlaygroundChat(
   messages: PlaygroundMessage[],
-  model: string,
   apiKey: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string, void, unknown> {
@@ -37,11 +43,11 @@ export async function* streamPlaygroundChat(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model,
+      model: DEFAULT_MODEL,
       messages,
       stream: true,
-      max_tokens: 1024,
-      temperature: 0.7,
+      max_tokens: PLAYGROUND_MAX_TOKENS,
+      temperature: 0.55,
     }),
   })
 

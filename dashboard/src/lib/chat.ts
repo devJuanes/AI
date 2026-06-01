@@ -3,8 +3,9 @@ import { api } from './api'
 
 const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
-export const DEFAULT_MODEL =
-  import.meta.env.VITE_DEFAULT_MODEL ?? 'llama3.2:1b'
+import { DEFAULT_MODEL } from './constants'
+
+export { DEFAULT_MODEL }
 
 export interface ChatMessage {
   id: string

@@ -116,21 +116,25 @@ onMounted(() => load())
 </script>
 
 <template>
-  <div class="px-5 sm:px-8 lg:px-10 py-6 lg:py-8">
-    <p class="text-xs text-matu-muted mb-6">
-      Fechas y horas en UTC. Los datos pueden tardar unos minutos en actualizarse.
-    </p>
-
-    <p v-if="error" class="mb-6 text-sm text-red-600 rounded-xl bg-red-50 px-4 py-3 border border-red-100">
-      {{ error }}
-    </p>
-
-    <div v-if="loading" class="flex items-center gap-2 text-matu-muted text-sm py-12">
-      <RefreshCw class="w-4 h-4 animate-spin" />
-      Cargando uso…
+  <div>
+    <div class="px-6 py-4 border-b border-matu-border">
+      <h1 class="text-xl font-semibold text-matu-text">Uso</h1>
+      <p class="text-xs text-matu-muted mt-1">
+        Fechas en UTC. Los datos pueden tardar unos minutos en actualizarse.
+      </p>
     </div>
 
-    <template v-else-if="usage">
+    <div class="px-6 py-5 space-y-6">
+      <p v-if="error" class="text-sm text-red-600 rounded-lg bg-red-50 px-4 py-3 border border-red-100">
+        {{ error }}
+      </p>
+
+      <div v-if="loading" class="flex items-center gap-2 text-matu-muted text-sm py-8">
+        <RefreshCw class="w-4 h-4 animate-spin" />
+        Cargando uso…
+      </div>
+
+      <template v-else-if="usage">
       <!-- Resumen -->
       <section class="mb-6 rounded-2xl bg-white border border-matu-border/80 p-6 sm:p-8 shadow-sm">
         <div class="grid sm:grid-cols-2 gap-8 sm:gap-12">
@@ -329,6 +333,7 @@ onMounted(() => load())
           </div>
         </div>
       </section>
-    </template>
+      </template>
+    </div>
   </div>
 </template>
