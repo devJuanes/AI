@@ -2,6 +2,7 @@ import type { FastifyReply } from 'fastify'
 import { openAIId, systemFingerprint, unixTimestamp } from './ids.js'
 import { estimateTokens } from './messages.js'
 import { parseInlineThinking } from './thinking.js'
+import { sseResponseHeaders } from '../../lib/cors-sse.js'
 
 export interface StreamChatOptions {
   reply: FastifyReply
@@ -28,12 +29,7 @@ export async function streamOllamaChat(options: StreamChatOptions): Promise<void
   }
 
   reply.hijack()
-  reply.raw.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  })
+  reply.raw.writeHead(200, sseResponseHeaders(reply))
 
   const flush = () => {
     const raw = reply.raw as NodeJS.WritableStream & { flush?: () => void }
@@ -153,12 +149,7 @@ export async function streamOllamaGenerate(options: StreamCompletionOptions): Pr
   }
 
   reply.hijack()
-  reply.raw.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  })
+  reply.raw.writeHead(200, sseResponseHeaders(reply))
 
   const flush = () => {
     const raw = reply.raw as NodeJS.WritableStream & { flush?: () => void }
