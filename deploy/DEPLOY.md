@@ -104,11 +104,25 @@ npm run build
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2
 sudo systemctl enable ollama
 sudo systemctl start ollama
+
+# Modelo liviano con razonamiento (~2.5 GB RAM en Q4)
+ollama pull qwen3:4b
+
+# Límites para VPS 6 vCPU / 12 GB (evita saturar CPU con runners duplicados)
+bash deploy/tune-ollama.sh
+
 curl http://127.0.0.1:11434/api/tags
 ```
+
+En `.env` del API:
+
+```env
+DEFAULT_CHAT_MODEL=qwen3:4b
+```
+
+Si el servidor quedó saturado, reinicia Ollama: `systemctl restart ollama`.
 
 ## 6. PM2 (solo la API)
 

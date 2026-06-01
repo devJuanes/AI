@@ -12,6 +12,7 @@ import { normalizeChatMessages, messagesToPrompt } from '../utils/messages.js'
 import { pickOllamaFormat, toOllamaOptions } from '../utils/ollama-options.js'
 import { openAIId } from '../utils/ids.js'
 import { streamOllamaChat } from '../utils/streaming.js'
+import { supportsOllamaThinking } from '../utils/thinking.js'
 
 export async function chatRoutes(app: FastifyInstance) {
   app.post('/v1/chat/completions', async (request, reply) => {
@@ -56,6 +57,7 @@ export async function chatRoutes(app: FastifyInstance) {
       stream: body.stream,
       options,
       ...(format ? { format } : {}),
+      ...(supportsOllamaThinking(body.model) ? { think: true } : {}),
     }
 
     const promptText = messagesToPrompt(messages)
@@ -89,12 +91,18 @@ export async function chatRoutes(app: FastifyInstance) {
       }
 
       const data = (await res.json()) as {
-        message?: { content?: string }
+        message?: { content?: string; thinking?: string }
         eval_count?: number
         prompt_eval_count?: number
       }
 
-      const content = data.message?.content ?? ''
+      let content = data.message?.content ?? ''
+      let reasoning = data.message?.thinking ?? ''
+      if (!reasoning && content) {
+        const parsed = (await import('../utils/thinking.js')).parseInlineThinking(content)
+        reasoning = parsed.reasoning
+        content = parsed.content
+      }
       const promptTokens = data.prompt_eval_count ?? estimateTokens(promptText)
       const completionTokens = data.eval_count ?? estimateTokens(content)
 

@@ -64,6 +64,7 @@ app.get('/health', async () => {
     ollama,
     matudb,
     docs: 'https://chat.matubyte.com/docs',
+    default_chat_model: config.defaultChatModel,
   }
 })
 

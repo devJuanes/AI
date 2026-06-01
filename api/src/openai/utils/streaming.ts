@@ -1,6 +1,7 @@
 import type { FastifyReply } from 'fastify'
 import { openAIId, systemFingerprint, unixTimestamp } from './ids.js'
 import { estimateTokens } from './messages.js'
+import { parseInlineThinking } from './thinking.js'
 
 export interface StreamChatOptions {
   reply: FastifyReply
@@ -39,6 +40,7 @@ export async function streamOllamaChat(options: StreamChatOptions): Promise<void
   const decoder = new TextDecoder()
   let buffer = ''
   let fullContent = ''
+  let fullThinking = ''
   let sentRole = false
   let promptTokens = estimateTokens(promptText)
   let completionTokens = 0
@@ -69,7 +71,7 @@ export async function streamOllamaChat(options: StreamChatOptions): Promise<void
       if (!line.trim()) continue
       try {
         const data = JSON.parse(line) as {
-          message?: { content?: string; role?: string }
+          message?: { content?: string; thinking?: string; role?: string }
           done?: boolean
           eval_count?: number
           prompt_eval_count?: number
@@ -83,13 +85,25 @@ export async function streamOllamaChat(options: StreamChatOptions): Promise<void
           sentRole = true
         }
 
+        if (data.message?.thinking) {
+          fullThinking += data.message.thinking
+          writeChunk({ reasoning_content: data.message.thinking }, null)
+        }
+
         if (data.message?.content) {
           fullContent += data.message.content
           writeChunk({ content: data.message.content }, null)
         }
 
         if (data.done) {
-          if (!completionTokens) completionTokens = estimateTokens(fullContent)
+          if (!completionTokens) {
+            if (!fullThinking) {
+              const parsed = parseInlineThinking(fullContent)
+              fullThinking = parsed.reasoning
+              fullContent = parsed.content
+            }
+            completionTokens = estimateTokens(fullContent + fullThinking)
+          }
           writeChunk({}, 'stop')
         }
       } catch {

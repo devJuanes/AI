@@ -9,15 +9,23 @@ import {
   LogOut,
   KeyRound,
   BookOpen,
+  ChevronDown,
+  Mic,
+  MicOff,
+  Brain,
 } from '@lucide/vue'
 import MatuLogo from '../components/MatuLogo.vue'
+import { useSpeechRecognition } from '../composables/useSpeechRecognition'
 import { api, setToken, type User } from '../lib/api'
 import {
   type ChatMessage,
   type ChatSession,
+  fetchDefaultModel,
   listModels,
   loadSessions,
   newSessionId,
+  parseInlineThinking,
+  pickDefaultModel,
   saveSessions,
   streamChatCompletion,
   titleFromMessage,
@@ -29,16 +37,35 @@ const sessions = ref<ChatSession[]>([])
 const activeId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
-const model = ref('llama3.2')
+const model = ref('qwen3:4b')
 const models = ref<string[]>([])
-const loading = ref(false)
 const streaming = ref(false)
 const error = ref('')
 const sidebarOpen = ref(true)
 const messagesEl = ref<HTMLElement | null>(null)
 let abortCtrl: AbortController | null = null
 
-const activeSession = computed(() => sessions.value.find((s) => s.id === activeId.value))
+const speech = useSpeechRecognition((text, isFinal) => {
+  input.value = text
+  if (isFinal) speech.stop()
+})
+
+const groupedSessions = computed(() => {
+  const now = Date.now()
+  const day = 86400000
+  const groups: { label: string; items: ChatSession[] }[] = [
+    { label: 'Hoy', items: [] },
+    { label: '7 días', items: [] },
+    { label: 'Anteriores', items: [] },
+  ]
+  for (const s of sessions.value) {
+    const age = now - s.updatedAt
+    if (age < day) groups[0].items.push(s)
+    else if (age < 7 * day) groups[1].items.push(s)
+    else groups[2].items.push(s)
+  }
+  return groups.filter((g) => g.items.length)
+})
 
 function persist() {
   if (!user.value) return
@@ -56,28 +83,17 @@ function openSession(id: string) {
   const session = sessions.value.find((s) => s.id === id)
   if (!session) return
   activeId.value = id
-  messages.value = [...session.messages]
+  messages.value = session.messages.map((m) => ({ ...m }))
   error.value = ''
 }
 
-function groupSessions(list: ChatSession[]) {
-  const now = Date.now()
-  const day = 86400000
-  const groups: { label: string; items: ChatSession[] }[] = [
-    { label: 'Hoy', items: [] },
-    { label: '7 días', items: [] },
-    { label: 'Anteriores', items: [] },
-  ]
-  for (const s of list) {
-    const age = now - s.updatedAt
-    if (age < day) groups[0].items.push(s)
-    else if (age < 7 * day) groups[1].items.push(s)
-    else groups[2].items.push(s)
+function toggleReasoning(index: number) {
+  const msg = messages.value[index]
+  if (msg?.role === 'assistant') {
+    msg.reasoningOpen = !msg.reasoningOpen
+    messages.value = [...messages.value]
   }
-  return groups.filter((g) => g.items.length)
 }
-
-const groupedSessions = computed(() => groupSessions(sessions.value))
 
 async function scrollToBottom() {
   await nextTick()
@@ -88,10 +104,11 @@ watch(messages, scrollToBottom, { deep: true })
 
 async function send() {
   const text = input.value.trim()
-  if (!text || loading.value || streaming.value) return
+  if (!text || streaming.value) return
 
   error.value = ''
   input.value = ''
+  speech.stop()
 
   const userMsg: ChatMessage = { role: 'user', content: text }
   messages.value.push(userMsg)
@@ -116,7 +133,12 @@ async function send() {
   }
   persist()
 
-  const assistantMsg: ChatMessage = { role: 'assistant', content: '' }
+  const assistantMsg: ChatMessage = {
+    role: 'assistant',
+    content: '',
+    reasoning: '',
+    reasoningOpen: true,
+  }
   messages.value.push(assistantMsg)
 
   streaming.value = true
@@ -124,14 +146,33 @@ async function send() {
 
   try {
     const stream = streamChatCompletion(
-      messages.value.slice(0, -1),
+      messages.value.slice(0, -1).map(({ role, content }) => ({ role, content })),
       model.value,
       abortCtrl.signal,
     )
-    for await (const chunk of stream) {
-      assistantMsg.content += chunk
+
+    for await (const part of stream) {
+      if (part.type === 'reasoning') {
+        assistantMsg.reasoning = (assistantMsg.reasoning ?? '') + part.text
+      } else {
+        assistantMsg.content += part.text
+        if (assistantMsg.content && !assistantMsg.reasoning) {
+          assistantMsg.reasoningOpen = false
+        }
+      }
       messages.value = [...messages.value]
     }
+
+    if (assistantMsg.content) {
+      const parsed = parseInlineThinking(assistantMsg.content)
+      if (parsed.reasoning) {
+        assistantMsg.reasoning = (assistantMsg.reasoning ?? '') + parsed.reasoning
+        assistantMsg.content = parsed.content
+      }
+    }
+
+    if (!assistantMsg.reasoning) delete assistantMsg.reasoning
+    else assistantMsg.reasoningOpen = false
 
     const session = sessions.value.find((s) => s.id === sessionId)
     if (session) {
@@ -144,10 +185,17 @@ async function send() {
     if (e instanceof Error && e.name === 'AbortError') return
     error.value = e instanceof Error ? e.message : 'Error al enviar mensaje'
     messages.value.pop()
-    if (assistantMsg.content === '') messages.value.pop()
+    if (!assistantMsg.content && !assistantMsg.reasoning) messages.value.pop()
   } finally {
     streaming.value = false
     abortCtrl = null
+  }
+}
+
+function onEnter(e: KeyboardEvent) {
+  if (!e.shiftKey && !streaming.value && input.value.trim()) {
+    e.preventDefault()
+    send()
   }
 }
 
@@ -161,10 +209,9 @@ onMounted(async () => {
     const me = await api.me()
     user.value = me.user
     sessions.value = loadSessions(me.user.id)
+    const preferred = await fetchDefaultModel()
     models.value = await listModels()
-    if (models.value.length && !models.value.includes(model.value)) {
-      model.value = models.value[0]
-    }
+    model.value = pickDefaultModel(models.value, preferred)
   } catch {
     router.push('/login')
   }
@@ -173,7 +220,6 @@ onMounted(async () => {
 
 <template>
   <div class="h-dvh flex bg-white text-matu-text overflow-hidden">
-    <!-- Sidebar -->
     <aside
       v-show="sidebarOpen"
       class="w-64 shrink-0 border-r border-matu-border flex flex-col bg-matu-surface/50"
@@ -195,6 +241,7 @@ onMounted(async () => {
         <button
           type="button"
           class="w-full flex items-center justify-center gap-2 rounded-xl border border-matu-border bg-white py-2.5 text-sm font-medium hover:border-matu-blue-muted hover:text-matu-blue transition"
+          :disabled="streaming"
           @click="startNewChat"
         >
           <MessageSquarePlus class="w-4 h-4" />
@@ -259,7 +306,6 @@ onMounted(async () => {
       </div>
     </aside>
 
-    <!-- Main -->
     <div class="flex-1 flex flex-col min-w-0">
       <header class="flex items-center gap-3 px-4 py-3 border-b border-matu-border shrink-0">
         <button
@@ -276,7 +322,8 @@ onMounted(async () => {
         </div>
         <select
           v-model="model"
-          class="text-xs sm:text-sm rounded-lg border border-matu-border bg-white px-2 py-1.5 text-matu-muted focus:outline-none focus:border-matu-blue max-w-[140px] truncate"
+          :disabled="streaming"
+          class="text-xs sm:text-sm rounded-lg border border-matu-border bg-white px-2 py-1.5 text-matu-muted focus:outline-none focus:border-matu-blue max-w-[160px] truncate"
         >
           <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
         </select>
@@ -287,31 +334,75 @@ onMounted(async () => {
           <MatuLogo size="lg" class="mb-4 opacity-90" />
           <h2 class="text-lg font-medium text-matu-text mb-2">¿En qué puedo ayudarte?</h2>
           <p class="text-sm text-matu-muted max-w-sm">
-            Escribe un mensaje abajo. Usa el chat web sin API Key — tu sesión ya está autenticada.
+            Escribe o usa el micrófono. Modelo optimizado para servidores de 12 GB RAM.
           </p>
         </div>
 
         <div v-else class="max-w-3xl mx-auto space-y-6">
-          <div v-for="(msg, i) in messages" :key="i" class="flex gap-3" :class="msg.role === 'user' ? 'justify-end' : ''">
+          <div
+            v-for="(msg, i) in messages"
+            :key="i"
+            class="flex gap-3"
+            :class="msg.role === 'user' ? 'justify-end' : ''"
+          >
             <div
               v-if="msg.role === 'assistant'"
-              class="w-8 h-8 rounded-full bg-matu-blue-soft flex items-center justify-center shrink-0"
+              class="w-8 h-8 rounded-full bg-matu-blue-soft flex items-center justify-center shrink-0 mt-1"
             >
               <MatuLogo size="sm" :show-text="false" class="scale-75" />
             </div>
-            <div
-              class="rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-[85%] whitespace-pre-wrap"
-              :class="
-                msg.role === 'user'
-                  ? 'bg-matu-blue text-white'
-                  : 'bg-matu-surface border border-matu-border text-matu-text'
-              "
-            >
-              {{ msg.content }}
-              <span
-                v-if="streaming && i === messages.length - 1 && msg.role === 'assistant'"
-                class="inline-block w-1.5 h-4 ml-0.5 bg-matu-blue animate-pulse align-middle"
-              />
+
+            <div class="max-w-[85%] space-y-2">
+              <!-- Razonamiento colapsable -->
+              <div
+                v-if="msg.role === 'assistant' && (msg.reasoning || (streaming && i === messages.length - 1 && !msg.content))"
+                class="rounded-xl border border-matu-border bg-matu-surface/80 overflow-hidden"
+              >
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium text-matu-muted hover:bg-white transition"
+                  @click="toggleReasoning(i)"
+                >
+                  <ChevronDown
+                    class="w-4 h-4 shrink-0 transition-transform"
+                    :class="msg.reasoningOpen !== false ? 'rotate-0' : '-rotate-90'"
+                  />
+                  <Brain class="w-3.5 h-3.5 text-matu-blue" />
+                  <span v-if="streaming && i === messages.length - 1 && !msg.content">Razonando…</span>
+                  <span v-else>Razonamiento</span>
+                </button>
+                <div
+                  v-show="msg.reasoningOpen !== false"
+                  class="px-3 pb-3 text-xs text-matu-muted leading-relaxed whitespace-pre-wrap border-t border-matu-border/60 pt-2 max-h-64 overflow-y-auto chat-scroll"
+                >
+                  <template v-if="msg.reasoning">{{ msg.reasoning }}</template>
+                  <span
+                    v-else-if="streaming && i === messages.length - 1"
+                    class="inline-flex gap-1 items-center"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce" />
+                    <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.15s]" />
+                    <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.3s]" />
+                  </span>
+                </div>
+              </div>
+
+              <!-- Respuesta -->
+              <div
+                v-if="msg.content || (msg.role === 'user')"
+                class="rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+                :class="
+                  msg.role === 'user'
+                    ? 'bg-matu-blue text-white'
+                    : 'bg-matu-surface border border-matu-border text-matu-text'
+                "
+              >
+                {{ msg.content }}
+                <span
+                  v-if="streaming && i === messages.length - 1 && msg.role === 'assistant' && msg.content"
+                  class="inline-block w-1.5 h-4 ml-0.5 bg-matu-blue animate-pulse align-middle"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -328,18 +419,36 @@ onMounted(async () => {
             rows="1"
             placeholder="Mensaje a Matu AI"
             class="w-full resize-none bg-transparent px-4 pt-4 pb-2 text-sm focus:outline-none min-h-[52px] max-h-40"
-            :disabled="streaming"
-            @keydown.enter.exact.prevent="send"
+            @keydown.enter="onEnter"
           />
-          <div class="flex items-center justify-between px-3 pb-3">
-            <span class="text-xs text-matu-muted hidden sm:inline">Enter para enviar</span>
-            <button
-              type="submit"
-              :disabled="!input.trim() || streaming"
-              class="ml-auto w-9 h-9 rounded-full bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-40 text-white flex items-center justify-center transition"
-            >
-              <Send class="w-4 h-4" />
-            </button>
+          <div class="flex items-center justify-between px-3 pb-3 gap-2">
+            <span class="text-xs text-matu-muted hidden sm:inline">
+              Enter para enviar · Shift+Enter nueva línea
+            </span>
+            <div class="flex items-center gap-2 ml-auto">
+              <button
+                v-if="speech.supported"
+                type="button"
+                :title="speech.listening ? 'Detener micrófono' : 'Hablar (voz a texto)'"
+                class="w-9 h-9 rounded-full flex items-center justify-center transition"
+                :class="
+                  speech.listening
+                    ? 'bg-red-50 text-red-500 border border-red-200'
+                    : 'text-matu-muted hover:bg-matu-surface hover:text-matu-blue'
+                "
+                @click="speech.toggle(input)"
+              >
+                <MicOff v-if="speech.listening" class="w-4 h-4" />
+                <Mic v-else class="w-4 h-4" />
+              </button>
+              <button
+                type="submit"
+                :disabled="!input.trim() || streaming"
+                class="w-9 h-9 rounded-full bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-40 text-white flex items-center justify-center transition"
+              >
+                <Send class="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </form>
       </div>
