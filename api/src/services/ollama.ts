@@ -123,6 +123,12 @@ export async function logUsage(
     prompt_tokens: promptTokens,
     completion_tokens: completionTokens,
   })
+
+  const { getUserIdForApiKey, deductUsageCost } = await import('./wallet.js')
+  const userId = await getUserIdForApiKey(apiKeyId)
+  if (userId) {
+    await deductUsageCost(userId, promptTokens + completionTokens, model).catch(() => {})
+  }
 }
 
 export function buildChatCompletionResponse(params: {

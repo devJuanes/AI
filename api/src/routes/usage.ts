@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { getDb } from '../db/matu.js'
 import { requireJwt } from '../middleware/auth.js'
+import { getPricingPublic, getOrCreateWallet, roundUsd, tokensToUsd } from '../services/wallet.js'
 
 interface UsageRow {
   api_key_id: string
@@ -62,15 +63,25 @@ export async function usageRoutes(app: FastifyInstance) {
     const keyList = (keys ?? []) as ApiKeyUsageRow[]
     const keyIds = keyList.map((k) => k.id)
     const keyNames = new Map(keyList.map((k) => [k.id, k.name]))
+    const balanceUsd = await getOrCreateWallet(request.user.sub)
+    const pricing = getPricingPublic()
+
+    const emptyWallet = {
+      balanceUsd,
+      spentThisMonthUsd: 0,
+    }
 
     if (!keyIds.length) {
       return {
         period,
+        pricing,
+        wallet: emptyWallet,
         summary: {
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
           requests: 0,
+          costUsd: 0,
         },
         daily: [],
         byModel: [],
@@ -95,7 +106,7 @@ export async function usageRoutes(app: FastifyInstance) {
 
     let promptTokens = 0
     let completionTokens = 0
-    const dailyMap = new Map<string, { tokens: number; requests: number }>()
+    const dailyMap = new Map<string, { tokens: number; requests: number; costUsd: number }>()
     const modelMap = new Map<string, { tokens: number; requests: number }>()
     const keyMap = new Map<string, { tokens: number; requests: number }>()
 
@@ -107,9 +118,10 @@ export async function usageRoutes(app: FastifyInstance) {
       completionTokens += c
 
       const day = row.created_at.slice(0, 10)
-      const d = dailyMap.get(day) ?? { tokens: 0, requests: 0 }
+      const d = dailyMap.get(day) ?? { tokens: 0, requests: 0, costUsd: 0 }
       d.tokens += total
       d.requests += 1
+      d.costUsd = roundUsd(d.costUsd + tokensToUsd(total))
       dailyMap.set(day, d)
 
       const m = modelMap.get(row.model) ?? { tokens: 0, requests: 0 }
@@ -139,13 +151,22 @@ export async function usageRoutes(app: FastifyInstance) {
       }))
       .sort((a, b) => b.tokens - a.tokens)
 
+    const totalTokens = promptTokens + completionTokens
+    const costUsd = roundUsd(tokensToUsd(totalTokens))
+
     return {
       period,
+      pricing,
+      wallet: {
+        balanceUsd,
+        spentThisMonthUsd: costUsd,
+      },
       summary: {
         promptTokens,
         completionTokens,
-        totalTokens: promptTokens + completionTokens,
+        totalTokens,
         requests: logs.length,
+        costUsd,
       },
       daily,
       byModel,

@@ -73,6 +73,10 @@ function formatNumber(n: number) {
   return n.toLocaleString('es-CO')
 }
 
+function formatUsd(n: number) {
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 })
+}
+
 function formatCompact(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k`
@@ -135,41 +139,50 @@ onMounted(() => load())
       </div>
 
       <template v-else-if="usage">
-      <!-- Resumen -->
-      <section class="mb-6 rounded-2xl bg-white border border-matu-border/80 p-6 sm:p-8 shadow-sm">
-        <div class="grid sm:grid-cols-2 gap-8 sm:gap-12">
+      <!-- Resumen saldo + consumo -->
+      <section class="mb-6 rounded-lg border border-matu-border p-5 sm:p-6 bg-[#fafafa]">
+        <div class="grid sm:grid-cols-2 gap-6 sm:gap-10">
           <div>
-            <p class="text-sm text-matu-muted mb-1">Tokens del mes</p>
+            <p class="text-sm text-matu-muted mb-1">Saldo actual</p>
             <p class="text-3xl font-bold text-matu-text tabular-nums">
-              {{ formatNumber(usage.summary.totalTokens) }}
+              {{ formatUsd(usage.wallet.balanceUsd) }}
+            </p>
+            <p v-if="usage.wallet.balanceUsd <= 0" class="text-xs text-amber-700 mt-2">
+              Sin saldo — recarga en
+              <RouterLink to="/dashboard/billing" class="underline font-medium">Facturación</RouterLink>
+              para usar la API.
+            </p>
+            <p v-else class="text-xs text-matu-muted mt-2">
+              Crédito prepago · se descuenta por consumo de tokens.
+            </p>
+          </div>
+          <div class="sm:border-l sm:border-matu-border sm:pl-10">
+            <p class="text-sm text-matu-muted mb-1">Consumo del mes</p>
+            <p class="text-3xl font-bold text-matu-text tabular-nums">
+              {{ formatUsd(usage.summary.costUsd) }}
             </p>
             <p class="text-xs text-matu-muted mt-2">
+              {{ formatNumber(usage.summary.totalTokens) }} tokens ·
+              {{ formatNumber(usage.summary.requests) }} solicitudes
+            </p>
+            <p class="text-xs text-matu-muted mt-1">
               Prompt {{ formatNumber(usage.summary.promptTokens) }} · Completion
               {{ formatNumber(usage.summary.completionTokens) }}
             </p>
           </div>
-          <div class="sm:border-l sm:border-matu-border sm:pl-12">
-            <p class="text-sm text-matu-muted mb-1">Solicitudes API</p>
-            <p class="text-3xl font-bold text-matu-text tabular-nums">
-              {{ formatNumber(usage.summary.requests) }}
-            </p>
-            <p class="text-xs text-matu-muted mt-2">
-              {{ usage.byKey.length }} API Key{{ usage.byKey.length === 1 ? '' : 's' }} con actividad
-            </p>
-          </div>
         </div>
-        <div class="mt-6 flex flex-wrap gap-3">
+        <div class="mt-5 flex flex-wrap gap-2">
           <RouterLink
-            to="/dashboard/playground"
-            class="inline-flex items-center rounded-lg bg-matu-text hover:bg-matu-text/90 text-white text-sm font-medium px-4 py-2 transition"
+            to="/dashboard/billing"
+            class="inline-flex items-center rounded-md bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium px-4 py-2"
           >
-            Probar API
+            Recargar saldo
           </RouterLink>
           <RouterLink
-            to="/dashboard/keys"
-            class="inline-flex items-center rounded-lg border border-matu-border bg-white text-sm font-medium px-4 py-2 text-matu-text hover:bg-matu-surface transition"
+            to="/dashboard/playground"
+            class="inline-flex items-center rounded-md border border-matu-border bg-white text-sm font-medium px-4 py-2 text-matu-text hover:bg-white/80"
           >
-            Gestionar keys
+            Probar API
           </RouterLink>
         </div>
       </section>
@@ -201,8 +214,9 @@ onMounted(() => load())
         </div>
 
         <p class="text-sm text-matu-muted mb-6">
-          Tokens
-          <span class="font-semibold text-matu-text ml-1">{{ formatNumber(usage.summary.totalTokens) }}</span>
+          Costo del mes
+          <span class="font-semibold text-matu-text ml-1">{{ formatUsd(usage.summary.costUsd) }}</span>
+          <span class="text-matu-muted ml-2">· {{ formatNumber(usage.summary.totalTokens) }} tokens</span>
         </p>
 
         <div v-if="usage.summary.totalTokens > 0" class="relative">
@@ -234,7 +248,7 @@ onMounted(() => load())
                     :style="{
                       height: day.tokens > 0 ? `${Math.max(4, (day.tokens / maxDailyTokens) * 100)}%` : '0',
                     }"
-                    :title="`${day.date}: ${formatNumber(day.tokens)} tokens`"
+                    :title="`${day.date}\n${formatNumber(day.tokens)} tokens\n${formatUsd(day.costUsd ?? 0)}\n${day.requests} solicitudes`"
                   />
                 </div>
               </div>

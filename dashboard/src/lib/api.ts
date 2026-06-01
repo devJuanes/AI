@@ -32,15 +32,48 @@ export interface ChatMessageRecord {
 
 export interface UsageResponse {
   period: { month: string; label: string; startIso: string; endIso: string }
+  pricing: {
+    minRechargeUsd: number
+    tokensPerUsd: number
+    model: string
+    usdCopRate: number
+    presetAmountsUsd: number[]
+    examples: { perUsd: number; per5Usd: number }
+  }
+  wallet: {
+    balanceUsd: number
+    spentThisMonthUsd: number
+  }
   summary: {
     promptTokens: number
     completionTokens: number
     totalTokens: number
     requests: number
+    costUsd: number
   }
-  daily: { date: string; tokens: number; requests: number }[]
+  daily: { date: string; tokens: number; requests: number; costUsd: number }[]
   byModel: { model: string; tokens: number; requests: number }[]
   byKey: { keyId: string; name: string; tokens: number; requests: number }[]
+}
+
+export interface WalletTransaction {
+  id: string
+  type: string
+  amountUsd: number
+  tokens: number | null
+  currency: string
+  amountLocal: number | null
+  status: string
+  paymentRef: string | null
+  description: string | null
+  createdAt: string
+}
+
+export interface BillingResponse {
+  pricing: UsageResponse['pricing']
+  wallet: { balanceUsd: number; balanceCop: number }
+  mockCheckout: boolean
+  transactions: WalletTransaction[]
 }
 
 function getToken(): string | null {
@@ -120,4 +153,26 @@ export const api = {
 
   getUsage: (month?: string) =>
     request<UsageResponse>(month ? `/api/usage?month=${month}` : '/api/usage'),
+
+  getBilling: () => request<BillingResponse>('/api/billing'),
+
+  createRecharge: (body: { amountUsd: number; currency: 'USD' | 'COP'; amountLocal?: number }) =>
+    request<{
+      transaction: {
+        id: string
+        paymentRef: string
+        amountUsd: number
+        tokensIncluded: number
+        status: string
+      }
+      checkoutUrl: string | null
+      message: string
+      mockCheckout: boolean
+    }>('/api/billing/recharge', { method: 'POST', body: JSON.stringify(body) }),
+
+  completeRechargeDemo: (id: string) =>
+    request<{ ok: boolean; wallet: { balanceUsd: number; balanceCop: number } }>(
+      `/api/billing/recharge/${id}/complete-demo`,
+      { method: 'POST' },
+    ),
 }

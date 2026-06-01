@@ -70,6 +70,16 @@ async function authenticateApiKey(request: FastifyRequest, reply: FastifyReply, 
 
   request.apiKey = { apiKeyId: record.id, userId: record.user_id }
 
+  const { hasWalletBalance } = await import('../services/wallet.js')
+  const funded = await hasWalletBalance(record.user_id)
+  if (!funded) {
+    return authError(
+      reply,
+      request,
+      'Insufficient balance. Add credits at https://chat.matubyte.com/dashboard/billing',
+    )
+  }
+
   matuUpdate(db, 'ai_api_keys', { id: record.id }, { last_used_at: new Date().toISOString() }).catch(() => {})
 }
 
