@@ -25,8 +25,9 @@ const payMessage = ref('')
 const presets = computed(() => billing.value?.pricing.presetAmountsUsd ?? [5, 10, 50, 100])
 
 const amountUsd = computed(() => {
-  if (customAmount.value.trim()) {
-    const n = Number(customAmount.value.replace(',', '.'))
+  const raw = String(customAmount.value ?? '').trim()
+  if (raw) {
+    const n = Number(raw.replace(',', '.'))
     if (Number.isNaN(n) || n <= 0) return 0
     if (currency.value === 'COP') {
       const rate = billing.value?.pricing.usdCopRate ?? 4200
@@ -49,6 +50,7 @@ const tokensPreview = computed(() => {
   return Math.floor(amountUsd.value * tpu)
 })
 
+const hasCustomAmount = computed(() => String(customAmount.value ?? '').trim().length > 0)
 const minUsd = computed(() => billing.value?.pricing.minRechargeUsd ?? 5)
 const canPay = computed(() => amountUsd.value >= minUsd.value && !paying.value)
 
@@ -217,7 +219,7 @@ onMounted(load)
                 type="button"
                 class="rounded-md border px-4 py-2 text-sm font-medium transition"
                 :class="
-                  selectedPreset === p && !customAmount
+                  selectedPreset === p && !hasCustomAmount
                     ? 'border-neutral-900 bg-neutral-900 text-white'
                     : 'border-matu-border bg-white hover:bg-[#fafafa]'
                 "
@@ -232,9 +234,8 @@ onMounted(load)
             <label class="text-sm font-medium text-matu-text block mb-2">Otro monto</label>
             <input
               v-model="customAmount"
-              type="number"
-              min="0"
-              step="any"
+              type="text"
+              inputmode="decimal"
               :placeholder="currency === 'USD' ? 'Ej. 25' : 'Ej. 21000'"
               class="w-full max-w-xs rounded-md border border-matu-border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400"
               @input="selectedPreset = null"
