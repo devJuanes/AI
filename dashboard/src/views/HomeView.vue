@@ -44,7 +44,7 @@ onMounted(async () => {
 
     <main class="flex-1 flex flex-col items-center justify-center px-6 pb-24 pt-8">
       <p class="text-sm text-matu-muted mb-8 text-center">
-        IA local para MatuByte · API compatible con OpenAI
+        IA local para MatuByte · API Matu AI
       </p>
 
       <MatuLogo size="hero" class="mb-6" />

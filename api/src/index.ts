@@ -69,18 +69,18 @@ app.get('/health', async () => {
     openai_compatible: true,
     ollama,
     matudb,
-    docs: 'https://chat.matubyte.com/docs',
+    docs: 'https://ai.matubyte.com/docs',
     default_chat_model: config.defaultChatModel,
   }
 })
 
 app.get('/', async () => ({
   name: 'Matu AI API',
-  url: 'https://api.matubyte.com',
-  openai_base_url: 'https://api.matubyte.com/v1',
-  dashboard: 'https://chat.matubyte.com',
+  url: 'https://ai.matubyte.com',
+  api_base: 'https://ai.matubyte.com/v1',
+  dashboard: 'https://ai.matubyte.com',
   endpoints: {
-    openai: {
+    v1: {
       models: 'GET /v1/models',
       model: 'GET /v1/models/{model}',
       chat: 'POST /v1/chat/completions',
@@ -104,7 +104,7 @@ await app.register(openaiRoutes)
 
 try {
   await app.listen({ port: config.port, host: config.host })
-  app.log.info(`Matu AI API (OpenAI-compatible) → http://${config.host}:${config.port}/v1`)
+  app.log.info(`Matu AI API → http://${config.host}:${config.port}/v1`)
 } catch (err) {
   app.log.error(err)
   process.exit(1)

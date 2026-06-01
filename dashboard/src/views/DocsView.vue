@@ -53,12 +53,12 @@ function scrollTo(id: string) {
     <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 lg:py-12">
       <!-- Hero -->
       <section class="mb-12 lg:mb-16">
-        <p class="text-matu-blue text-sm font-medium mb-2">OpenAI-compatible API</p>
+        <p class="text-matu-blue text-sm font-medium mb-2">API Matu AI</p>
         <h1 class="text-3xl sm:text-4xl font-bold text-matu-text tracking-tight mb-4">
           Documentación Matu AI
         </h1>
         <p class="text-matu-muted text-lg max-w-2xl leading-relaxed">
-          Integra IA local en todos tus productos MatuByte con una API estándar, API Keys y modelos Ollama.
+          Integra IA local en tus productos MatuByte con nuestra API, API Keys y modelos Ollama.
         </p>
         <div class="mt-6 flex flex-wrap gap-3">
           <div class="rounded-xl bg-matu-surface border border-matu-border px-4 py-3 font-mono text-sm">
@@ -66,7 +66,7 @@ function scrollTo(id: string) {
             <span class="text-emerald-600">{{ API_BASE }}</span>
           </div>
           <div class="rounded-xl bg-matu-surface border border-matu-border px-4 py-3 font-mono text-sm">
-            <span class="text-matu-muted">Site </span>
+            <span class="text-matu-muted">Sitio </span>
             <span class="text-matu-blue">{{ SITE_URL }}</span>
           </div>
         </div>

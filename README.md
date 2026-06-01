@@ -1,11 +1,10 @@
 <p align="center">
   <strong>Matu AI</strong><br/>
-  API OpenAI-compatible sobre Ollama para MatuByte
+  API de inteligencia artificial sobre Ollama para MatuByte
 </p>
 
 <p align="center">
-  <a href="https://chat.matubyte.com">chat.matubyte.com</a> ·
-  <a href="https://api.matubyte.com/v1">api.matubyte.com</a> ·
+  <a href="https://ai.matubyte.com">ai.matubyte.com</a> ·
   <a href="https://github.com/devJuanes/AI">GitHub</a>
 </p>
 
@@ -13,14 +12,13 @@
 
 ## Qué es Matu AI
 
-**Matu AI** es la plataforma central de inteligencia artificial de MatuByte. Expone una **API compatible con OpenAI v1** sobre [Ollama](https://ollama.com):
+**Matu AI** es la plataforma de inteligencia artificial de MatuByte. Expone una API REST sobre [Ollama](https://ollama.com) con API Keys, dashboard, facturación prepago y persistencia en MatuDB.
 
-| Subdominio | Uso |
-|------------|-----|
-| **chat.matubyte.com** | Frontend — docs, login, API Keys |
-| **api.matubyte.com** | API OpenAI + auth (`/v1`, `/api`) |
-
-Funciona con el **SDK oficial de OpenAI** — solo cambia `baseURL` y `apiKey`.
+| URL | Uso |
+|-----|-----|
+| **https://ai.matubyte.com** | Panel, chat, documentación |
+| **https://ai.matubyte.com/v1** | API (`/v1/*`) |
+| **https://ai.matubyte.com/api** | Auth y dashboard backend |
 
 ## Inicio rápido (local)
 
@@ -38,19 +36,19 @@ npm run dev
 | Frontend | http://localhost:5173/docs |
 | API | http://localhost:3001/v1 |
 
-## Uso con OpenAI SDK
+## Ejemplo de uso
 
 ```typescript
-import OpenAI from 'openai'
-
-const client = new OpenAI({
-  apiKey: 'mai_live_...',
-  baseURL: 'https://api.matubyte.com/v1',
-})
-
-const res = await client.chat.completions.create({
-  model: 'llama3.2',
-  messages: [{ role: 'user', content: 'Hola' }],
+const res = await fetch('https://ai.matubyte.com/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    Authorization: 'Bearer mai_live_...',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: 'llama3.2',
+    messages: [{ role: 'user', content: 'Hola' }],
+  }),
 })
 ```
 
@@ -71,17 +69,17 @@ Autenticación: `Authorization: Bearer mai_live_...`
 ```bash
 git clone https://github.com/devJuanes/AI.git
 cd AI
-cp .env.example .env   # VITE_API_URL=https://api.matubyte.com
+cp .env.example .env   # VITE_API_URL=https://ai.matubyte.com
 npm ci && npm run db:setup && npm run build
 pm2 start ecosystem.config.cjs
-# Nginx: deploy/nginx/api.matubyte.com.conf + chat.matubyte.com.conf
+# Nginx: deploy/nginx/ai.matubyte.com.conf
 ```
 
 Guía completa: **[deploy/DEPLOY.md](./deploy/DEPLOY.md)**
 
 ## Documentación
 
-- **Web:** https://chat.matubyte.com/docs
+- **Web:** https://ai.matubyte.com/docs
 - [docs/OPENAI-API.md](./docs/OPENAI-API.md)
 - [docs/MATUDB-INTEGRATION.md](./docs/MATUDB-INTEGRATION.md)
 

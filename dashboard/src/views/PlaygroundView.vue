@@ -31,10 +31,10 @@ async function validateKey() {
   keyChecking.value = true
   error.value = ''
   try {
-    const ok = await testApiKey(key)
-    keyValid.value = ok
-    if (ok) setPlaygroundApiKey(key)
-    else error.value = 'API Key inválida o revocada'
+    const result = await testApiKey(key)
+    keyValid.value = result.ok
+    if (result.ok) setPlaygroundApiKey(key)
+    else error.value = result.message
   } catch (e) {
     keyValid.value = false
     error.value = e instanceof Error ? e.message : 'Error al validar key'
@@ -108,7 +108,7 @@ onMounted(() => {
       <p class="text-xs text-matu-muted">
         Modelo fijo: <span class="font-mono text-matu-text">{{ PLAYGROUND_MODEL }}</span>
         · Endpoint:
-        <code class="font-mono">{{ API_BASE }}/v1/chat/completions</code>
+        <code class="font-mono">{{ API_BASE }}/chat/completions</code>
       </p>
 
       <div class="flex flex-col sm:flex-row gap-2 max-w-2xl">

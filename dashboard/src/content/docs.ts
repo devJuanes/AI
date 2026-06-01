@@ -1,3 +1,5 @@
+import { MATU_API_BASE, MATU_SITE_ORIGIN } from '../lib/matu-urls'
+
 export interface DocSection {
   id: string
   title: string
@@ -11,8 +13,10 @@ export type DocBlock =
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'callout'; variant: 'info' | 'warn'; text: string }
 
-export const API_BASE = 'https://api.matubyte.com/v1'
-export const SITE_URL = 'https://chat.matubyte.com'
+/** Base URL v1 para ejemplos en documentación */
+export const API_BASE = MATU_API_BASE
+/** Sitio web (dashboard, docs, chat) */
+export const SITE_URL = MATU_SITE_ORIGIN
 
 export const docSections: DocSection[] = [
   {
@@ -21,19 +25,19 @@ export const docSections: DocSection[] = [
     content: [
       {
         type: 'p',
-        text: 'Matu AI es la plataforma central de inteligencia artificial de MatuByte. Expone una API compatible con OpenAI v1 sobre Ollama, con autenticación por API Key, dashboard y persistencia en MatuDB.',
+        text: 'Matu AI es la plataforma de inteligencia artificial de MatuByte. Expone una API REST sobre Ollama con autenticación por API Key, dashboard de uso y facturación, y persistencia en MatuDB.',
       },
       {
         type: 'callout',
         variant: 'info',
-        text: 'Base URL de producción: https://api.matubyte.com/v1 — Dashboard y docs en https://chat.matubyte.com',
+        text: `Base URL de la API: ${MATU_API_BASE} — Panel, chat y documentación en ${MATU_SITE_ORIGIN}`,
       },
       {
         type: 'ul',
         items: [
-          'Compatible con OpenAI SDK (Node, Python, etc.)',
           'Modelos locales vía Ollama — privacidad y control total',
           'API Keys por proyecto (prefijo mai_live_)',
+          'Saldo prepago por tokens consumidos',
           'Streaming SSE, JSON mode y embeddings',
         ],
       },
@@ -45,7 +49,7 @@ export const docSections: DocSection[] = [
     content: [
       {
         type: 'p',
-        text: 'Todos los endpoints /v1/* requieren una API Key en el header Authorization, igual que OpenAI.',
+        text: 'Todos los endpoints bajo /v1/* requieren tu API Key de Matu AI en el header Authorization.',
       },
       {
         type: 'code',
@@ -54,7 +58,11 @@ export const docSections: DocSection[] = [
       },
       {
         type: 'p',
-        text: 'Obtén tu clave en el Dashboard → API Keys. Solo se muestra una vez al crearla; guárdala en variables de entorno (.env) de tus apps.',
+        text: 'Crea y gestiona claves en el Dashboard → API Keys. La clave completa solo se muestra una vez al crearla; guárdala en variables de entorno (.env) de tus aplicaciones.',
+      },
+      {
+        type: 'p',
+        text: 'Las llamadas con API Key consumen saldo de tu billetera. Si no tienes crédito, la API responde 401 con un mensaje de saldo insuficiente — recarga en Dashboard → Facturación.',
       },
       {
         type: 'table',
@@ -104,7 +112,7 @@ export const docSections: DocSection[] = [
         rows: [
           ['model', 'string', 'Requerido — nombre del modelo Ollama'],
           ['messages', 'array', 'Roles: system, user, assistant, developer'],
-          ['stream', 'boolean', 'SSE compatible OpenAI'],
+          ['stream', 'boolean', 'Respuesta en eventos SSE'],
           ['temperature', 'number', '0 – 2'],
           ['max_tokens', 'number', 'Límite de tokens de salida'],
           ['response_format', 'object', '{ "type": "json_object" } para JSON mode'],
@@ -132,7 +140,7 @@ export const docSections: DocSection[] = [
     content: [
       {
         type: 'p',
-        text: 'API de completions clásica (prompt → texto). Útil para integraciones legacy o prompts simples.',
+        text: 'API de completions clásica (prompt → texto). Útil para prompts simples o integraciones heredadas.',
       },
       {
         type: 'code',
@@ -171,44 +179,49 @@ export const docSections: DocSection[] = [
   },
   {
     id: 'sdk',
-    title: 'SDK OpenAI',
+    title: 'Ejemplos de código',
     content: [
       {
         type: 'p',
-        text: 'Usa el cliente oficial de OpenAI apuntando a Matu AI. No necesitas SDK propio.',
+        text: 'Consume la API con fetch, axios o cualquier cliente HTTP. Incluye siempre Authorization: Bearer mai_live_...',
       },
       {
         type: 'code',
         lang: 'typescript',
-        code: `import OpenAI from 'openai'
-
-const client = new OpenAI({
-  apiKey: process.env.MATU_AI_KEY,
-  baseURL: '${API_BASE}',
+        code: `const response = await fetch('${API_BASE}/chat/completions', {
+  method: 'POST',
+  headers: {
+    Authorization: \`Bearer \${process.env.MATU_AI_KEY}\`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: 'llama3.2',
+    messages: [{ role: 'user', content: 'Hola' }],
+  }),
 })
 
-const response = await client.chat.completions.create({
-  model: 'llama3.2',
-  messages: [{ role: 'user', content: 'Hola' }],
-})
-
-console.log(response.choices[0].message.content)`,
+const data = await response.json()
+console.log(data.choices[0].message.content)`,
       },
       {
         type: 'code',
         lang: 'python',
-        code: `from openai import OpenAI
+        code: `import os
+import requests
 
-client = OpenAI(
-    api_key="mai_live_...",
-    base_url="${API_BASE}",
+response = requests.post(
+    "${API_BASE}/chat/completions",
+    headers={
+        "Authorization": f"Bearer {os.environ['MATU_AI_KEY']}",
+        "Content-Type": "application/json",
+    },
+    json={
+        "model": "llama3.2",
+        "messages": [{"role": "user", "content": "Hola"}],
+    },
+    timeout=120,
 )
-
-response = client.chat.completions.create(
-    model="llama3.2",
-    messages=[{"role": "user", "content": "Hola"}],
-)
-print(response.choices[0].message.content)`,
+print(response.json()["choices"][0]["message"]["content"])`,
       },
     ],
   },
@@ -218,19 +231,39 @@ print(response.choices[0].message.content)`,
     content: [
       {
         type: 'p',
-        text: 'Con stream: true recibes eventos SSE con formato chat.completion.chunk, terminando en data: [DONE].',
+        text: 'Con stream: true recibes eventos SSE (líneas data: ...) con fragmentos del texto, terminando en data: [DONE].',
       },
       {
         type: 'code',
         lang: 'typescript',
-        code: `const stream = await client.chat.completions.create({
-  model: 'llama3.2',
-  messages: [{ role: 'user', content: 'Cuéntame un chiste' }],
-  stream: true,
+        code: `const res = await fetch('${API_BASE}/chat/completions', {
+  method: 'POST',
+  headers: {
+    Authorization: \`Bearer \${process.env.MATU_AI_KEY}\`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: 'llama3.2',
+    messages: [{ role: 'user', content: 'Cuéntame un chiste' }],
+    stream: true,
+  }),
 })
 
-for await (const chunk of stream) {
-  process.stdout.write(chunk.choices[0]?.delta?.content ?? '')
+const reader = res.body!.getReader()
+const decoder = new TextDecoder()
+let buffer = ''
+
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  buffer += decoder.decode(value, { stream: true })
+  for (const line of buffer.split('\\n')) {
+    if (!line.startsWith('data: ')) continue
+    const payload = line.slice(6)
+    if (payload === '[DONE]') break
+    const chunk = JSON.parse(payload)
+    process.stdout.write(chunk.choices?.[0]?.delta?.content ?? '')
+  }
 }`,
       },
     ],
@@ -241,7 +274,7 @@ for await (const chunk of stream) {
     content: [
       {
         type: 'p',
-        text: 'Los errores siguen el formato estándar de OpenAI:',
+        text: 'Los errores se devuelven en JSON con el campo error:',
       },
       {
         type: 'code',
@@ -259,7 +292,7 @@ for await (const chunk of stream) {
         type: 'table',
         headers: ['HTTP', 'type', 'Causa común'],
         rows: [
-          ['401', 'invalid_request_error', 'API Key inválida o revocada'],
+          ['401', 'invalid_request_error', 'API Key inválida, revocada o saldo insuficiente'],
           ['400', 'invalid_request_error', 'Parámetros incorrectos'],
           ['404', 'not_found_error', 'Modelo no encontrado en Ollama'],
           ['503', 'service_unavailable', 'Ollama no disponible'],

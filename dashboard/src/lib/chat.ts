@@ -1,9 +1,7 @@
-import { getToken } from './api'
-import { api } from './api'
-
-const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
-
+import { getMatuApiOrigin, matuV1 } from './matu-urls'
 import { DEFAULT_MODEL } from './constants'
+
+const API_URL = getMatuApiOrigin()
 
 export { DEFAULT_MODEL }
 
@@ -112,7 +110,7 @@ export async function listModels(): Promise<string[]> {
   const token = getToken()
   if (!token) throw new Error('Sesión expirada')
 
-  const res = await fetch(`${API_URL}/v1/models`, {
+  const res = await fetch(matuV1('/models'), {
     headers: { Authorization: `Bearer ${token}` },
   })
   const data = await res.json().catch(() => ({}))
@@ -157,7 +155,7 @@ export async function* streamChatCompletion(
   const token = getToken()
   if (!token) throw new Error('Sesión expirada')
 
-  const res = await fetch(`${API_URL}/v1/chat/completions`, {
+  const res = await fetch(matuV1('/chat/completions'), {
     method: 'POST',
     signal,
     headers: {

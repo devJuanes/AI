@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
+import { getMatuApiOrigin } from './matu-urls'
+
+const API_URL = getMatuApiOrigin()
 
 export interface User {
   id: string

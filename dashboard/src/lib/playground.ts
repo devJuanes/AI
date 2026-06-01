@@ -1,6 +1,5 @@
 import { DEFAULT_MODEL } from './constants'
-
-const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
+import { matuV1 } from './matu-urls'
 
 const STORAGE_KEY = 'matu_playground_api_key'
 
@@ -23,11 +22,17 @@ export interface PlaygroundMessage {
   content: string
 }
 
-export async function testApiKey(apiKey: string): Promise<boolean> {
-  const res = await fetch(`${API_URL}/v1/models`, {
+export async function testApiKey(
+  apiKey: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const res = await fetch(matuV1('/models'), {
     headers: { Authorization: `Bearer ${apiKey}` },
   })
-  return res.ok
+  if (res.ok) return { ok: true }
+
+  const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } }
+  const message = data.error?.message ?? `Error HTTP ${res.status}`
+  return { ok: false, message }
 }
 
 export async function* streamPlaygroundChat(
@@ -35,7 +40,7 @@ export async function* streamPlaygroundChat(
   apiKey: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string, void, unknown> {
-  const res = await fetch(`${API_URL}/v1/chat/completions`, {
+  const res = await fetch(matuV1('/chat/completions'), {
     method: 'POST',
     signal,
     headers: {

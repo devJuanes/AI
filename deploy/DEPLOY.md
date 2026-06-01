@@ -1,28 +1,26 @@
-# Despliegue Matu AI — api.matubyte.com + chat.matubyte.com
+# Despliegue Matu AI — ai.matubyte.com
 
 ## Arquitectura
 
 | Componente | URL | Nginx / proceso |
 |------------|-----|-----------------|
-| **Frontend** (docs, login, API keys) | `https://chat.matubyte.com` | Nginx → `/var/www/matu-ai/chat/dist` |
-| **API OpenAI** | `https://api.matubyte.com/v1` | Nginx → PM2 `:3001` |
-| **Auth dashboard** | `https://api.matubyte.com/api` | Mismo backend |
-| **Health** | `https://api.matubyte.com/health` | Mismo backend |
+| **Frontend** (docs, login, API keys, chat) | `https://ai.matubyte.com` | Nginx → `/var/www/matu-ai/chat/dist` |
+| **API v1** | `https://ai.matubyte.com/v1` | Nginx proxy → PM2 `:3001` |
+| **Auth dashboard** | `https://ai.matubyte.com/api` | Mismo backend |
+| **Health** | `https://ai.matubyte.com/health` | Mismo backend |
 | **MatuDB** | `https://db.matudb.com` | Remoto |
 | **Ollama** | `http://127.0.0.1:11434` | Local en el VPS |
 
 ```
-chat.matubyte.com  ──►  Vue SPA (llama a api.matubyte.com)
-api.matubyte.com   ──►  Fastify API  ──►  Ollama + MatuDB
+ai.matubyte.com  ──►  Vue SPA + proxy /api y /v1  ──►  Fastify API  ──►  Ollama + MatuDB
 ```
 
-## DNS (ya configurado)
+## DNS
 
-Registros **A** apuntando a la IP del VPS:
+Registro **A** apuntando a la IP del VPS:
 
 ```
-api.matubyte.com   →  IP del servidor
-chat.matubyte.com  →  IP del servidor
+ai.matubyte.com  →  IP del servidor
 ```
 
 ---
@@ -84,10 +82,10 @@ OLLAMA_TIMEOUT_MS=300000
 
 API_PORT=3001
 API_HOST=0.0.0.0
-CORS_ORIGIN=https://chat.matubyte.com
+CORS_ORIGIN=https://ai.matubyte.com
 
 # El frontend llama a la API en otro subdominio
-VITE_API_URL=https://api.matubyte.com
+VITE_API_URL=https://ai.matubyte.com
 ```
 
 ## 4. Instalar, DB y build
@@ -156,60 +154,53 @@ sudo chown -R www-data:www-data /var/www/matu-ai
 
 ## 8. Nginx + SSL
 
-**Importante:** ambos subdominios deben tener registro DNS **A** → IP del VPS antes de SSL:
+**Importante:** `ai.matubyte.com` debe tener registro DNS **A** → IP del VPS antes de SSL:
 
 ```
-api.matubyte.com   →  83.171.248.29
-chat.matubyte.com  →  83.171.248.29
+ai.matubyte.com  →  IP del servidor
 ```
 
 Comprobar:
 
 ```bash
-dig +short api.matubyte.com
-dig +short chat.matubyte.com
+dig +short ai.matubyte.com
 ```
 
-Las configs Nginx arrancan **solo en HTTP** (sin certificados). Certbot añade HTTPS:
+Copiar config y obtener certificado:
 
 ```bash
 cd ~/apps/matu-ai
-git pull
-sudo bash deploy/setup-ssl.sh
-```
-
-Si `api.matubyte.com` aún no tiene DNS, SSL solo para chat:
-
-```bash
-sudo certbot --nginx -d chat.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
-```
-
-Cuando exista el DNS de `api`:
-
-```bash
-sudo certbot --nginx -d api.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
+sudo cp deploy/nginx/ai.matubyte.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/ai.matubyte.com.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d ai.matubyte.com --non-interactive --agree-tos --register-unsafely-without-email --redirect
 ```
 
 ## 9. Verificación final
 
 ```bash
-curl https://api.matubyte.com/health
-curl https://api.matubyte.com/v1/models -H "Authorization: Bearer mai_live_TU_KEY"
+curl https://ai.matubyte.com/health
+curl https://ai.matubyte.com/v1/models -H "Authorization: Bearer mai_live_TU_KEY"
 ```
 
 Abrir en navegador:
 
-- https://chat.matubyte.com/docs — documentación
-- https://chat.matubyte.com/login — crear cuenta / API keys
+- https://ai.matubyte.com/docs — documentación
+- https://ai.matubyte.com/login — crear cuenta / API keys
 
-## 10. SDK OpenAI en tus apps
+## 10. Integrar en tus apps
 
 ```typescript
-import OpenAI from 'openai'
-
-const client = new OpenAI({
-  apiKey: 'mai_live_...',
-  baseURL: 'https://api.matubyte.com/v1',
+const res = await fetch('https://ai.matubyte.com/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    Authorization: 'Bearer mai_live_...',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: 'llama3.2',
+    messages: [{ role: 'user', content: 'Hola' }],
+  }),
 })
 ```
 
@@ -247,8 +238,8 @@ bash deploy/publish-chat.sh
 
 | Problema | Solución |
 |----------|----------|
-| CORS error desde chat | `CORS_ORIGIN=https://chat.matubyte.com` en `.env` + `pm2 restart` |
-| Frontend llama a localhost | Rebuild con `VITE_API_URL=https://api.matubyte.com` |
+| CORS error | `CORS_ORIGIN=https://ai.matubyte.com` en `.env` + `pm2 restart` |
+| Frontend llama a localhost | Rebuild con `VITE_API_URL=https://ai.matubyte.com` |
 | 502 en api | `pm2 logs matu-ai-api` — revisar `.env` y MatuDB |
 | Ollama down | `systemctl status ollama` + `ollama list` |
 | SSL | `sudo certbot renew --dry-run` |
