@@ -3,7 +3,7 @@ import { getToken } from './api'
 const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 export const DEFAULT_MODEL =
-  import.meta.env.VITE_DEFAULT_MODEL ?? 'qwen3:4b'
+  import.meta.env.VITE_DEFAULT_MODEL ?? 'llama3.2:1b'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'

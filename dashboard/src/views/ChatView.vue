@@ -37,7 +37,7 @@ const sessions = ref<ChatSession[]>([])
 const activeId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
-const model = ref('qwen3:4b')
+const model = ref('llama3.2:1b')
 const models = ref<string[]>([])
 const streaming = ref(false)
 const error = ref('')
@@ -136,8 +136,6 @@ async function send() {
   const assistantMsg: ChatMessage = {
     role: 'assistant',
     content: '',
-    reasoning: '',
-    reasoningOpen: true,
   }
   messages.value.push(assistantMsg)
 
@@ -153,12 +151,13 @@ async function send() {
 
     for await (const part of stream) {
       if (part.type === 'reasoning') {
-        assistantMsg.reasoning = (assistantMsg.reasoning ?? '') + part.text
+        if (!assistantMsg.reasoning) {
+          assistantMsg.reasoning = ''
+          assistantMsg.reasoningOpen = true
+        }
+        assistantMsg.reasoning += part.text
       } else {
         assistantMsg.content += part.text
-        if (assistantMsg.content && !assistantMsg.reasoning) {
-          assistantMsg.reasoningOpen = false
-        }
       }
       messages.value = [...messages.value]
     }
@@ -334,7 +333,7 @@ onMounted(async () => {
           <MatuLogo size="lg" class="mb-4 opacity-90" />
           <h2 class="text-lg font-medium text-matu-text mb-2">¿En qué puedo ayudarte?</h2>
           <p class="text-sm text-matu-muted max-w-sm">
-            Escribe o usa el micrófono. Modelo optimizado para servidores de 12 GB RAM.
+            Escribe un mensaje abajo para empezar.
           </p>
         </div>
 
@@ -355,7 +354,7 @@ onMounted(async () => {
             <div class="max-w-[85%] space-y-2">
               <!-- Razonamiento colapsable -->
               <div
-                v-if="msg.role === 'assistant' && (msg.reasoning || (streaming && i === messages.length - 1 && !msg.content))"
+                v-if="msg.role === 'assistant' && msg.reasoning"
                 class="rounded-xl border border-matu-border bg-matu-surface/80 overflow-hidden"
               >
                 <button
@@ -368,28 +367,19 @@ onMounted(async () => {
                     :class="msg.reasoningOpen !== false ? 'rotate-0' : '-rotate-90'"
                   />
                   <Brain class="w-3.5 h-3.5 text-matu-blue" />
-                  <span v-if="streaming && i === messages.length - 1 && !msg.content">Razonando…</span>
-                  <span v-else>Razonamiento</span>
+                  <span>Razonamiento</span>
                 </button>
                 <div
                   v-show="msg.reasoningOpen !== false"
                   class="px-3 pb-3 text-xs text-matu-muted leading-relaxed whitespace-pre-wrap border-t border-matu-border/60 pt-2 max-h-64 overflow-y-auto chat-scroll"
                 >
-                  <template v-if="msg.reasoning">{{ msg.reasoning }}</template>
-                  <span
-                    v-else-if="streaming && i === messages.length - 1"
-                    class="inline-flex gap-1 items-center"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce" />
-                    <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.15s]" />
-                    <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.3s]" />
-                  </span>
+                  {{ msg.reasoning }}
                 </div>
               </div>
 
               <!-- Respuesta -->
               <div
-                v-if="msg.content || (msg.role === 'user')"
+                v-if="msg.role === 'user' || msg.content || (streaming && i === messages.length - 1 && msg.role === 'assistant' && !msg.content)"
                 class="rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
                 :class="
                   msg.role === 'user'
@@ -397,7 +387,15 @@ onMounted(async () => {
                     : 'bg-matu-surface border border-matu-border text-matu-text'
                 "
               >
-                {{ msg.content }}
+                <template v-if="msg.content">{{ msg.content }}</template>
+                <span
+                  v-else-if="streaming && i === messages.length - 1"
+                  class="inline-flex gap-1 items-center py-1"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.15s]" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.3s]" />
+                </span>
                 <span
                   v-if="streaming && i === messages.length - 1 && msg.role === 'assistant' && msg.content"
                   class="inline-block w-1.5 h-4 ml-0.5 bg-matu-blue animate-pulse align-middle"

@@ -57,7 +57,7 @@ export async function chatRoutes(app: FastifyInstance) {
       stream: body.stream,
       options,
       ...(format ? { format } : {}),
-      ...(supportsOllamaThinking(body.model) ? { think: true } : {}),
+      ...(supportsOllamaThinking(body.model) ? { think: trackUsage } : {}),
     }
 
     const promptText = messagesToPrompt(messages)

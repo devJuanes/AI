@@ -8,4 +8,7 @@ deploy/_remote_deploy.py
 deploy/_check_server.py
 deploy/_fix_login.py
 deploy/_read_nginx.py
+deploy/_fix_*.py
+deploy/_grep_*.py
+deploy/_deploy_*.py
 api/drizzle/meta/_journal.json.bak

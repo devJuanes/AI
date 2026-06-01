@@ -11,6 +11,6 @@ export const config = {
   matudbProjectId: process.env.MATUDB_PROJECT_ID ?? '',
   matudbServiceKey: process.env.MATUDB_SERVICE_KEY || process.env.MATUDB_API_KEY || '',
   ollamaTimeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS ?? 300_000),
-  /** Modelo recomendado para chat web (liviano + razonamiento) */
-  defaultChatModel: process.env.DEFAULT_CHAT_MODEL ?? 'qwen3:4b',
+  /** Modelo chat web — liviano (~1.3 GB RAM) */
+  defaultChatModel: process.env.DEFAULT_CHAT_MODEL ?? 'llama3.2:1b',
 }
