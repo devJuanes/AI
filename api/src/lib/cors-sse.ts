@@ -1,5 +1,5 @@
 import type { FastifyReply } from 'fastify'
-import { config } from '../../config.js'
+import { config } from '../config.js'
 
 function resolveAllowOrigin(requestOrigin: string | undefined): string | null {
   if (!requestOrigin) return null
