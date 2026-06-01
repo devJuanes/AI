@@ -11,6 +11,12 @@ interface UsageRow {
   created_at: string
 }
 
+interface ApiKeyUsageRow {
+  id: string
+  name: string
+  key_prefix: string
+}
+
 function monthRangeUtc(month?: string) {
   const now = new Date()
   let year = now.getUTCFullYear()
@@ -53,9 +59,9 @@ export async function usageRoutes(app: FastifyInstance) {
       })
     }
 
-    const keyList = keys ?? []
-    const keyIds = keyList.map((k) => k.id as string)
-    const keyNames = new Map(keyList.map((k) => [k.id as string, k.name as string]))
+    const keyList = (keys ?? []) as ApiKeyUsageRow[]
+    const keyIds = keyList.map((k) => k.id)
+    const keyNames = new Map(keyList.map((k) => [k.id, k.name]))
 
     if (!keyIds.length) {
       return {
