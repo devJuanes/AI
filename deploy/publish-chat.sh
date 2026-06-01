@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
-# Copia el build del dashboard al path de Nginx (chat.matubyte.com)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET="${1:-/var/www/matu-ai/chat/dist}"
 
-echo "→ Build dashboard..."
 cd "$ROOT"
+
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
+# Mientras api.matubyte.com no tenga DNS, el frontend usa chat + proxy nginx
+export VITE_API_URL="${VITE_API_URL:-https://chat.matubyte.com}"
+
+echo "→ Build dashboard (VITE_API_URL=$VITE_API_URL)..."
 npm run build --workspace=dashboard
 
 echo "→ Copiando a $TARGET ..."
-sudo mkdir -p "$TARGET"
-sudo rsync -a --delete "$ROOT/dashboard/dist/" "$TARGET/"
-sudo chown -R www-data:www-data "$(dirname "$TARGET")"
+mkdir -p "$TARGET"
+rsync -a --delete "$ROOT/dashboard/dist/" "$TARGET/"
+chown -R www-data:www-data "$(dirname "$TARGET")" 2>/dev/null || true
 
-echo "✓ Frontend publicado en chat.matubyte.com"
+echo "✓ Frontend publicado — https://chat.matubyte.com"
