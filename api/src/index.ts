@@ -8,6 +8,7 @@ import { config } from './config.js'
 import { authRoutes } from './routes/auth.js'
 import { chatSessionsRoutes } from './routes/chat-sessions.js'
 import { keysRoutes } from './routes/keys.js'
+import { usageRoutes } from './routes/usage.js'
 import { openaiRoutes } from './openai/index.js'
 import { listOllamaModels } from './services/ollama.js'
 
@@ -95,6 +96,7 @@ app.get('/', async () => ({
 
 await app.register(authRoutes)
 await app.register(keysRoutes)
+await app.register(usageRoutes)
 await app.register(chatSessionsRoutes)
 await app.register(openaiRoutes)
 

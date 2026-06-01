@@ -530,7 +530,7 @@ onUnmounted(() => {
           Documentación
         </RouterLink>
         <RouterLink
-          to="/dashboard"
+          to="/dashboard/keys"
           class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-matu-muted hover:bg-matu-surface hover:text-matu-text transition"
           @click="closeMobileSidebar"
         >
@@ -538,7 +538,7 @@ onUnmounted(() => {
           API Keys
         </RouterLink>
         <RouterLink
-          to="/billing"
+          to="/dashboard/billing"
           class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-matu-muted hover:bg-matu-surface hover:text-matu-text transition"
           @click="closeMobileSidebar"
         >

@@ -30,6 +30,19 @@ export interface ChatMessageRecord {
   reasoning?: string | null
 }
 
+export interface UsageResponse {
+  period: { month: string; label: string; startIso: string; endIso: string }
+  summary: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+    requests: number
+  }
+  daily: { date: string; tokens: number; requests: number }[]
+  byModel: { model: string; tokens: number; requests: number }[]
+  byKey: { keyId: string; name: string; tokens: number; requests: number }[]
+}
+
 function getToken(): string | null {
   return localStorage.getItem('matu_ai_token')
 }
@@ -43,13 +56,17 @@ export function setToken(token: string | null) {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers as Record<string, string> | undefined),
+  }
+  if (options.body != null) {
+    headers['Content-Type'] = headers['Content-Type'] ?? 'application/json'
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
+    headers,
   })
 
   const data = await res.json().catch(() => ({}))
@@ -100,4 +117,7 @@ export const api = {
 
   deleteChatSession: (id: string) =>
     request<{ ok: boolean }>(`/api/chat/sessions/${id}`, { method: 'DELETE' }),
+
+  getUsage: (month?: string) =>
+    request<UsageResponse>(month ? `/api/usage?month=${month}` : '/api/usage'),
 }

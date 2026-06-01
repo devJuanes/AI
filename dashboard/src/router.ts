@@ -32,13 +32,31 @@ const router = createRouter({
     },
     {
       path: '/dashboard',
-      component: () => import('./views/DashboardView.vue'),
+      component: () => import('./views/DashboardShell.vue'),
       meta: { auth: true },
+      redirect: '/dashboard/usage',
+      children: [
+        {
+          path: 'usage',
+          component: () => import('./views/UsageView.vue'),
+        },
+        {
+          path: 'keys',
+          component: () => import('./views/DashboardView.vue'),
+        },
+        {
+          path: 'playground',
+          component: () => import('./views/PlaygroundView.vue'),
+        },
+        {
+          path: 'billing',
+          component: () => import('./views/BillingView.vue'),
+        },
+      ],
     },
     {
       path: '/billing',
-      component: () => import('./views/BillingView.vue'),
-      meta: { auth: true },
+      redirect: '/dashboard/billing',
     },
   ],
 })

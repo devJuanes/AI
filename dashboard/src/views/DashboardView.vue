@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { KeyRound, Plus, Trash2, Copy } from '@lucide/vue'
-import AppLayout from '../layouts/AppLayout.vue'
-import { api, type ApiKeyRecord, type User } from '../lib/api'
+import { KeyRound, Plus, Trash2, Copy, FlaskConical } from '@lucide/vue'
+import { api, type ApiKeyRecord } from '../lib/api'
 import { API_BASE } from '../content/docs'
+import { setPlaygroundApiKey } from '../lib/playground'
 
 const router = useRouter()
-const user = ref<User | null>(null)
 const keys = ref<ApiKeyRecord[]>([])
 const newKeyName = ref('')
 const newSecret = ref<string | null>(null)
@@ -20,8 +19,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [me, keyList] = await Promise.all([api.me(), api.listKeys()])
-    user.value = me.user
+    const keyList = await api.listKeys()
     keys.value = keyList.keys
   } catch {
     router.push('/login')
@@ -63,26 +61,25 @@ async function copySecret() {
   setTimeout(() => (copied.value = false), 2000)
 }
 
+function tryInPlayground() {
+  if (!newSecret.value) return
+  setPlaygroundApiKey(newSecret.value)
+  router.push('/dashboard/playground')
+}
+
 onMounted(load)
 </script>
 
 <template>
-  <AppLayout :user-name="user?.name">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 lg:py-10 space-y-8">
-      <div>
-        <h1 class="text-2xl font-bold text-matu-text mb-1">API Keys</h1>
-        <p class="text-matu-muted text-sm">
-          Gestiona las claves para consumir la API en
-          <span class="text-matu-blue font-mono">{{ API_BASE }}</span>
-        </p>
-        <p class="text-matu-muted text-sm mt-2">
-          El chat web no requiere API Key —
-          <RouterLink to="/chat" class="text-matu-blue hover:text-matu-blue-hover font-medium">usa el chat</RouterLink>
-          con tu sesión.
-        </p>
-      </div>
+  <div class="px-5 sm:px-8 lg:px-10 py-6 lg:py-8 space-y-6">
+    <p class="text-sm text-matu-muted">
+      Endpoint:
+      <span class="text-matu-blue font-mono text-xs">{{ API_BASE }}</span>
+      · El chat web no requiere API Key —
+      <RouterLink to="/chat" class="text-matu-blue hover:text-matu-blue-hover font-medium">usa el chat</RouterLink>.
+    </p>
 
-      <section v-if="newSecret" class="rounded-xl bg-emerald-50 border border-emerald-200 p-5">
+      <section v-if="newSecret" class="rounded-2xl bg-emerald-50 border border-emerald-200 p-5 shadow-sm">
         <p class="text-emerald-700 font-medium mb-2">¡API Key creada! Cópiala ahora — no se volverá a mostrar.</p>
         <div class="flex gap-2 items-center">
           <code class="flex-1 bg-white rounded-lg px-3 py-2 text-sm text-emerald-800 break-all border border-emerald-100">{{ newSecret }}</code>
@@ -95,12 +92,22 @@ onMounted(load)
             {{ copied ? 'Copiado' : 'Copiar' }}
           </button>
         </div>
-        <button type="button" class="mt-3 text-sm text-matu-muted hover:text-matu-text" @click="newSecret = null">
-          Entendido, ocultar
-        </button>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-lg bg-matu-blue hover:bg-matu-blue-hover px-3 py-2 text-sm text-white"
+            @click="tryInPlayground"
+          >
+            <FlaskConical class="w-4 h-4" />
+            Probar en playground
+          </button>
+          <button type="button" class="text-sm text-matu-muted hover:text-matu-text px-2" @click="newSecret = null">
+            Entendido, ocultar
+          </button>
+        </div>
       </section>
 
-      <section class="rounded-xl bg-matu-surface border border-matu-border p-5">
+      <section class="rounded-2xl bg-white border border-matu-border/80 p-5 sm:p-6 shadow-sm">
         <div class="flex items-center gap-2 mb-4">
           <KeyRound class="w-5 h-5 text-matu-blue" />
           <h2 class="font-semibold text-matu-text">Tus claves</h2>
@@ -116,7 +123,7 @@ onMounted(load)
           <button
             type="submit"
             :disabled="creating"
-            class="flex items-center justify-center gap-1.5 rounded-xl bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-50 px-4 py-2.5 text-white font-medium"
+            class="flex items-center justify-center gap-1.5 rounded-lg bg-matu-text hover:bg-matu-text/90 disabled:opacity-50 px-4 py-2.5 text-white text-sm font-medium"
           >
             <Plus class="w-4 h-4" />
             Crear API Key
@@ -156,10 +163,14 @@ onMounted(load)
       <p class="text-sm text-matu-muted">
         ¿Cómo integrar?
         <RouterLink
-          to="/billing"
+          to="/dashboard/billing"
           class="text-matu-blue hover:text-matu-blue-hover font-medium"
         >
           Facturación API
+        </RouterLink>
+        ·
+        <RouterLink to="/dashboard/playground" class="text-matu-blue hover:text-matu-blue-hover font-medium">
+          Probar API
         </RouterLink>
         ·
         <RouterLink to="/docs" class="text-matu-blue hover:text-matu-blue-hover font-medium">
@@ -167,5 +178,4 @@ onMounted(load)
         </RouterLink>
       </p>
     </div>
-  </AppLayout>
 </template>

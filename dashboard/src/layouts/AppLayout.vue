@@ -18,8 +18,8 @@ function logout() {
 const nav = [
   { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/docs', label: 'Documentación', icon: BookOpen },
-  { to: '/dashboard', label: 'API Keys', icon: KeyRound },
-  { to: '/billing', label: 'Facturación', icon: CreditCard },
+  { to: '/dashboard/keys', label: 'API Keys', icon: KeyRound },
+  { to: '/dashboard/billing', label: 'Facturación', icon: CreditCard },
 ]
 </script>
 
