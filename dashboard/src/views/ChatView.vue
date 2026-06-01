@@ -14,7 +14,6 @@ import {
   CreditCard,
   ChevronDown,
   Mic,
-  MicOff,
   Brain,
   Trash2,
 } from '@lucide/vue'
@@ -135,6 +134,11 @@ watch(
   () => messages.value.length,
   () => scheduleScroll(true),
 )
+
+watch([sidebarOpen, isMobile], ([open, mobile]) => {
+  if (mobile && open) document.body.style.overflow = 'hidden'
+  else document.body.style.overflow = ''
+})
 
 function stopGeneration() {
   abortCtrl?.abort()
@@ -419,40 +423,53 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', syncViewport)
+  document.body.style.overflow = ''
 })
 </script>
 
 <template>
-  <div class="h-dvh flex bg-white text-matu-text overflow-hidden relative">
-    <!-- Backdrop móvil -->
-    <div
-      v-if="isMobile && sidebarOpen"
-      class="fixed inset-0 z-40 bg-black/40 lg:hidden"
-      aria-hidden="true"
-      @click="closeMobileSidebar"
-    />
-
-    <aside
-      v-show="sidebarOpen || !isMobile"
-      class="flex flex-col bg-matu-surface/50 border-r border-matu-border shrink-0 z-50"
-      :class="
-        isMobile
-          ? 'fixed inset-y-0 left-0 w-[min(100%,18rem)] max-w-[85vw] shadow-xl'
-          : 'w-64 relative'
-      "
-    >
-      <div class="p-4 flex items-center justify-between gap-2">
-        <RouterLink to="/">
-          <MatuLogo size="sm" />
-        </RouterLink>
+  <div class="h-dvh flex bg-white text-matu-text overflow-hidden">
+    <!-- Backdrop móvil (fuera del flex para evitar bleed) -->
+    <Teleport to="body">
+      <Transition name="chat-backdrop">
         <button
+          v-if="isMobile && sidebarOpen"
           type="button"
-          class="p-1.5 rounded-lg text-matu-muted hover:bg-white hover:text-matu-text transition lg:hidden"
+          class="fixed inset-0 z-[200] bg-black/60 backdrop-blur-[2px] lg:hidden cursor-default"
+          aria-label="Cerrar menú"
           @click="closeMobileSidebar"
+        />
+      </Transition>
+    </Teleport>
+
+    <!-- Sidebar: en body en móvil, en flujo en desktop -->
+    <Teleport to="body" :disabled="!isMobile">
+      <aside
+        v-show="sidebarOpen || !isMobile"
+        class="flex flex-col shrink-0 overflow-hidden"
+        :class="
+          isMobile
+            ? 'fixed inset-y-0 left-0 z-[210] w-[min(20rem,88vw)] max-w-[320px] h-dvh max-h-dvh bg-white border-r border-matu-border shadow-2xl'
+            : 'relative w-64 bg-matu-surface/80 border-r border-matu-border h-full'
+        "
+      >
+        <div
+          class="p-4 flex items-center justify-between gap-2 shrink-0"
+          :class="isMobile ? 'border-b border-matu-border bg-white' : ''"
         >
-          <PanelLeftClose class="w-4 h-4" />
-        </button>
-      </div>
+          <RouterLink to="/" @click="closeMobileSidebar">
+            <MatuLogo size="sm" />
+          </RouterLink>
+          <button
+            v-if="isMobile"
+            type="button"
+            class="p-2 rounded-lg text-matu-muted hover:bg-matu-surface hover:text-matu-text transition"
+            aria-label="Cerrar menú"
+            @click="closeMobileSidebar"
+          >
+            <PanelLeftClose class="w-5 h-5" />
+          </button>
+        </div>
 
       <div class="px-3 pb-2">
         <button
@@ -484,7 +501,7 @@ onUnmounted(() => {
               :class="
                 activeId === session.id
                   ? 'bg-matu-blue-soft text-matu-blue font-medium'
-                  : 'text-matu-muted hover:bg-white hover:text-matu-text'
+                  : 'text-matu-muted hover:bg-matu-surface hover:text-matu-text'
               "
               :disabled="loadingSession"
               @click="openSession(session.id)"
@@ -503,10 +520,10 @@ onUnmounted(() => {
         </template>
       </div>
 
-      <div class="border-t border-matu-border p-3 space-y-1 shrink-0">
+      <div class="border-t border-matu-border p-3 space-y-1 shrink-0 bg-white pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <RouterLink
           to="/docs"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-matu-muted hover:bg-white hover:text-matu-text transition"
+          class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-matu-muted hover:bg-matu-surface hover:text-matu-text transition"
           @click="closeMobileSidebar"
         >
           <BookOpen class="w-4 h-4" />
@@ -514,7 +531,7 @@ onUnmounted(() => {
         </RouterLink>
         <RouterLink
           to="/dashboard"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-matu-muted hover:bg-white hover:text-matu-text transition"
+          class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-matu-muted hover:bg-matu-surface hover:text-matu-text transition"
           @click="closeMobileSidebar"
         >
           <KeyRound class="w-4 h-4" />
@@ -522,13 +539,13 @@ onUnmounted(() => {
         </RouterLink>
         <RouterLink
           to="/billing"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-matu-muted hover:bg-white hover:text-matu-text transition"
+          class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-matu-muted hover:bg-matu-surface hover:text-matu-text transition"
           @click="closeMobileSidebar"
         >
           <CreditCard class="w-4 h-4" />
           Facturación
         </RouterLink>
-        <div class="flex items-center gap-2 px-3 py-2 mt-1">
+        <div class="flex items-center gap-2 px-3 py-2.5 mt-1 rounded-lg bg-matu-surface/60">
           <div
             class="w-8 h-8 rounded-full bg-matu-blue text-white flex items-center justify-center text-xs font-semibold shrink-0"
           >
@@ -548,13 +565,18 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-    </aside>
+      </aside>
+    </Teleport>
 
-    <div class="flex-1 flex flex-col min-w-0">
+    <div
+      class="flex-1 flex flex-col min-w-0 min-h-0 relative z-0"
+      :class="isMobile && sidebarOpen ? 'overflow-hidden' : ''"
+    >
       <header class="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-matu-border shrink-0">
         <button
+          v-if="isMobile && !sidebarOpen"
           type="button"
-          class="p-2 rounded-lg text-matu-muted hover:bg-matu-surface transition lg:hidden"
+          class="p-2 rounded-lg text-matu-muted hover:bg-matu-surface transition shrink-0"
           title="Menú"
           @click="openMobileSidebar"
         >
@@ -685,59 +707,56 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="shrink-0 px-4 sm:px-8 pb-6 pt-2">
-        <p v-if="error" class="text-sm text-red-500 text-center mb-2">{{ error }}</p>
+      <div class="shrink-0 px-3 sm:px-8 pb-3 sm:pb-6 pt-1 sm:pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <p v-if="error" class="text-sm text-red-500 text-center mb-2 px-1">{{ error }}</p>
         <form
-          class="max-w-3xl mx-auto rounded-2xl border border-matu-border bg-white shadow-sm focus-within:border-matu-blue-muted focus-within:shadow-md transition"
+          class="max-w-3xl mx-auto flex items-end gap-1.5 sm:gap-2 rounded-[1.75rem] border border-matu-border bg-white shadow-sm px-3 py-2 sm:px-4 sm:py-2.5 focus-within:border-matu-blue-muted focus-within:ring-2 focus-within:ring-matu-blue-soft transition"
           @submit.prevent="send"
         >
           <textarea
             v-model="input"
             rows="1"
             placeholder="Mensaje a Matu AI"
-            class="w-full resize-none bg-transparent px-4 pt-4 pb-2 text-sm focus:outline-none min-h-[52px] max-h-40"
+            class="chat-input flex-1 resize-none bg-transparent py-1.5 px-1 text-sm leading-6 focus:outline-none max-h-32 min-h-[1.5rem]"
             @keydown.enter="onEnter"
           />
-          <div class="flex items-center justify-between px-3 pb-3 gap-2">
-            <span class="text-xs text-matu-muted hidden sm:inline">
-              Enter para enviar · Shift+Enter nueva línea
-            </span>
-            <div class="flex items-center gap-2 ml-auto">
-              <button
-                v-if="speech.supported"
-                type="button"
-                :title="speech.listening ? 'Detener micrófono' : 'Hablar (voz a texto)'"
-                class="w-9 h-9 rounded-full flex items-center justify-center transition"
-                :class="
-                  speech.listening
-                    ? 'bg-red-50 text-red-500 border border-red-200'
-                    : 'text-matu-muted hover:bg-matu-surface hover:text-matu-blue'
-                "
-                @click="speech.toggle(input)"
-              >
-                <MicOff v-if="speech.listening" class="w-4 h-4" />
-                <Mic v-else class="w-4 h-4" />
-              </button>
-              <button
-                v-if="streaming"
-                type="button"
-                title="Detener"
-                class="w-9 h-9 rounded-full bg-matu-surface border border-matu-border text-matu-muted hover:text-matu-text flex items-center justify-center transition"
-                @click="stopGeneration"
-              >
-                <Square class="w-3.5 h-3.5 fill-current" />
-              </button>
-              <button
-                v-else
-                type="submit"
-                :disabled="!input.trim()"
-                class="w-9 h-9 rounded-full bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-40 text-white flex items-center justify-center transition"
-              >
-                <Send class="w-4 h-4" />
-              </button>
-            </div>
+          <div class="flex items-center gap-1 shrink-0 self-end mb-0.5">
+            <button
+              v-if="speech.supported"
+              type="button"
+              :title="speech.listening ? 'Detener grabación' : 'Dictar mensaje'"
+              class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition"
+              :class="
+                speech.listening
+                  ? 'bg-matu-blue-soft text-matu-blue ring-2 ring-matu-blue/25'
+                  : 'text-gray-400 hover:bg-matu-surface hover:text-gray-500'
+              "
+              @click="speech.toggle(input)"
+            >
+              <Mic class="w-4 h-4" :class="speech.listening ? 'text-matu-blue animate-pulse' : 'text-gray-400'" />
+            </button>
+            <button
+              v-if="streaming"
+              type="button"
+              title="Detener"
+              class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-matu-surface border border-matu-border text-matu-muted hover:text-matu-text flex items-center justify-center transition"
+              @click="stopGeneration"
+            >
+              <Square class="w-3.5 h-3.5 fill-current" />
+            </button>
+            <button
+              v-else
+              type="submit"
+              :disabled="!input.trim()"
+              class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-35 text-white flex items-center justify-center transition shrink-0"
+            >
+              <Send class="w-4 h-4" />
+            </button>
           </div>
         </form>
+        <p class="hidden sm:block text-xs text-matu-muted text-center mt-2">
+          Enter para enviar · Shift+Enter nueva línea
+        </p>
       </div>
     </div>
 
@@ -751,3 +770,19 @@ onUnmounted(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.chat-backdrop-enter-active,
+.chat-backdrop-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.chat-backdrop-enter-from,
+.chat-backdrop-leave-to {
+  opacity: 0;
+}
+
+.chat-input {
+  field-sizing: content;
+}
+</style>

@@ -15,6 +15,7 @@ import { streamOllamaChat } from '../utils/streaming.js'
 import { buildMatuSystemPrompt } from '../utils/matu-prompt.js'
 import { supportsOllamaThinking } from '../utils/thinking.js'
 import { withDashboardOllamaLock } from '../../services/ollama-queue.js'
+import { config } from '../../config.js'
 
 const DASHBOARD_MAX_MESSAGES = 20
 const DASHBOARD_DEFAULT_MAX_TOKENS = 1024
@@ -72,7 +73,7 @@ export async function chatRoutes(app: FastifyInstance) {
     if (isDashboard) {
       messages.unshift({
         role: 'system',
-        content: buildMatuSystemPrompt(),
+        content: buildMatuSystemPrompt(config.appTimezone),
       })
     }
 

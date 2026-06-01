@@ -13,4 +13,6 @@ export const config = {
   ollamaTimeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS ?? 300_000),
   /** Modelo chat web — liviano (~1.3 GB RAM) */
   defaultChatModel: process.env.DEFAULT_CHAT_MODEL ?? 'llama3.2:1b',
+  /** Zona horaria para fecha en el system prompt del chat */
+  appTimezone: process.env.APP_TIMEZONE ?? 'America/Bogota',
 }
