@@ -6,10 +6,18 @@ export const DEFAULT_MODEL =
   import.meta.env.VITE_DEFAULT_MODEL ?? 'llama3.2:1b'
 
 export interface ChatMessage {
+  id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   reasoning?: string
   reasoningOpen?: boolean
+}
+
+export function createChatMessage(
+  role: ChatMessage['role'],
+  content = '',
+): ChatMessage {
+  return { id: crypto.randomUUID(), role, content }
 }
 
 export interface ChatSession {
@@ -206,7 +214,14 @@ const STORAGE_KEY = 'matu_ai_chat_sessions'
 export function loadSessions(userId: string): ChatSession[] {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}:${userId}`)
-    return raw ? (JSON.parse(raw) as ChatSession[]) : []
+    if (!raw) return []
+    return (JSON.parse(raw) as ChatSession[]).map((session) => ({
+      ...session,
+      messages: session.messages.map((m) => ({
+        ...m,
+        id: m.id ?? crypto.randomUUID(),
+      })),
+    }))
   } catch {
     return []
   }

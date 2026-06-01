@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import {
   MessageSquarePlus,
@@ -16,11 +16,14 @@ import {
   Brain,
 } from '@lucide/vue'
 import MatuLogo from '../components/MatuLogo.vue'
+import TypingIndicator from '../components/TypingIndicator.vue'
+import { useChatAutoScroll } from '../composables/useChatAutoScroll'
 import { useSpeechRecognition } from '../composables/useSpeechRecognition'
 import { api, setToken, type User } from '../lib/api'
 import {
   type ChatMessage,
   type ChatSession,
+  createChatMessage,
   createThinkStreamParser,
   fetchDefaultModel,
   filterChatModels,
@@ -42,41 +45,86 @@ const input = ref('')
 const model = ref('llama3.2:1b')
 const models = ref<string[]>([])
 const streaming = ref(false)
+const awaitingFirstToken = ref(false)
 const error = ref('')
 const sidebarOpen = ref(true)
 const messagesEl = ref<HTMLElement | null>(null)
 const bottomEl = ref<HTMLElement | null>(null)
+const { onScroll, pinToBottom, scrollToBottom, scheduleScroll } = useChatAutoScroll(
+  messagesEl,
+  bottomEl,
+)
 let abortCtrl: AbortController | null = null
-let scrollRaf = 0
-let stickToBottom = true
+let streamFlushRaf = 0
+let pendingContent = ''
+let pendingReasoning = ''
+let activeAssistantIndex = -1
 
-function isNearBottom(el: HTMLElement, threshold = 120) {
-  return el.scrollHeight - el.scrollTop - el.clientHeight < threshold
-}
-
-function onMessagesScroll() {
-  if (!messagesEl.value) return
-  stickToBottom = isNearBottom(messagesEl.value)
-}
-
-async function scrollToBottom(force = false) {
-  if (!force && !stickToBottom) return
-  await nextTick()
-  bottomEl.value?.scrollIntoView({ behavior: 'auto', block: 'end' })
-}
-
-function scheduleScroll(force = false) {
-  if (scrollRaf) return
-  scrollRaf = requestAnimationFrame(() => {
-    scrollRaf = 0
-    void scrollToBottom(force || streaming.value)
-  })
+function ensureMessageId(msg: ChatMessage): ChatMessage {
+  return msg.id ? msg : { ...msg, id: crypto.randomUUID() }
 }
 
 function patchAssistantMessage(index: number, patch: Partial<ChatMessage>) {
   const current = messages.value[index]
   if (!current) return
   messages.value[index] = { ...current, ...patch }
+  if (patch.content || patch.reasoning) awaitingFirstToken.value = false
+}
+
+function flushStreamBuffer(forceScroll = true) {
+  streamFlushRaf = 0
+  if (activeAssistantIndex < 0) return
+
+  const live = messages.value[activeAssistantIndex]
+  if (!live || live.role !== 'assistant') return
+
+  const patch: Partial<ChatMessage> = {}
+  if (pendingContent) {
+    patch.content = live.content + pendingContent
+    pendingContent = ''
+  }
+  if (pendingReasoning) {
+    patch.reasoning = (live.reasoning ?? '') + pendingReasoning
+    patch.reasoningOpen = true
+    pendingReasoning = ''
+  }
+
+  if (Object.keys(patch).length === 0) return
+  patchAssistantMessage(activeAssistantIndex, patch)
+  if (forceScroll) scheduleScroll(true)
+}
+
+function scheduleStreamFlush() {
+  if (streamFlushRaf) return
+  streamFlushRaf = requestAnimationFrame(() => flushStreamBuffer(true))
+}
+
+function resetStreamBuffer(index: number) {
+  if (streamFlushRaf) {
+    cancelAnimationFrame(streamFlushRaf)
+    streamFlushRaf = 0
+  }
+  pendingContent = ''
+  pendingReasoning = ''
+  activeAssistantIndex = index
+}
+
+function appendStreamContent(text: string) {
+  pendingContent += text
+  scheduleStreamFlush()
+}
+
+function appendStreamReasoning(text: string) {
+  pendingReasoning += text
+  scheduleStreamFlush()
+}
+
+function finalizeStreamBuffer() {
+  if (streamFlushRaf) {
+    cancelAnimationFrame(streamFlushRaf)
+    streamFlushRaf = 0
+  }
+  flushStreamBuffer(false)
 }
 
 watch(
@@ -126,8 +174,10 @@ function openSession(id: string) {
   const session = sessions.value.find((s) => s.id === id)
   if (!session) return
   activeId.value = id
-  messages.value = session.messages.map((m) => ({ ...m }))
+  messages.value = session.messages.map((m) => ensureMessageId({ ...m }))
   error.value = ''
+  pinToBottom()
+  void scrollToBottom(true)
 }
 
 function toggleReasoning(index: number) {
@@ -146,9 +196,9 @@ async function send() {
   input.value = ''
   speech.stop()
 
-  stickToBottom = true
+  pinToBottom()
 
-  const userMsg: ChatMessage = { role: 'user', content: text }
+  const userMsg = createChatMessage('user', text)
   messages.value.push(userMsg)
   await scrollToBottom(true)
 
@@ -172,15 +222,14 @@ async function send() {
   }
   persist()
 
-  const assistantMsg: ChatMessage = {
-    role: 'assistant',
-    content: '',
-  }
+  const assistantMsg = createChatMessage('assistant')
   const assistantIndex = messages.value.length
+  resetStreamBuffer(assistantIndex)
   messages.value.push(assistantMsg)
   await scrollToBottom(true)
 
   streaming.value = true
+  awaitingFirstToken.value = true
   abortCtrl = new AbortController()
 
   try {
@@ -193,50 +242,26 @@ async function send() {
     const thinkParser = createThinkStreamParser()
 
     for await (const part of stream) {
-      const current = messages.value[assistantIndex]
-      if (!current || current.role !== 'assistant') break
+      if (messages.value[assistantIndex]?.role !== 'assistant') break
 
       if (part.type === 'reasoning') {
-        patchAssistantMessage(assistantIndex, {
-          reasoning: (current.reasoning ?? '') + part.text,
-          reasoningOpen: true,
-        })
+        appendStreamReasoning(part.text)
       } else {
         for (const piece of thinkParser.feed(part.text)) {
-          const live = messages.value[assistantIndex]
-          if (!live || live.role !== 'assistant') break
-
-          if (piece.type === 'reasoning') {
-            patchAssistantMessage(assistantIndex, {
-              reasoning: (live.reasoning ?? '') + piece.text,
-              reasoningOpen: true,
-            })
-          } else {
-            patchAssistantMessage(assistantIndex, {
-              content: live.content + piece.text,
-            })
-          }
+          if (messages.value[assistantIndex]?.role !== 'assistant') break
+          if (piece.type === 'reasoning') appendStreamReasoning(piece.text)
+          else appendStreamContent(piece.text)
         }
       }
-      scheduleScroll()
     }
 
     for (const piece of thinkParser.flush()) {
-      const live = messages.value[assistantIndex]
-      if (!live || live.role !== 'assistant') break
-
-      if (piece.type === 'reasoning') {
-        patchAssistantMessage(assistantIndex, {
-          reasoning: (live.reasoning ?? '') + piece.text,
-          reasoningOpen: true,
-        })
-      } else {
-        patchAssistantMessage(assistantIndex, {
-          content: live.content + piece.text,
-        })
-      }
+      if (messages.value[assistantIndex]?.role !== 'assistant') break
+      if (piece.type === 'reasoning') appendStreamReasoning(piece.text)
+      else appendStreamContent(piece.text)
     }
-    scheduleScroll()
+
+    finalizeStreamBuffer()
 
     const finalMsg = messages.value[assistantIndex]
     if (finalMsg?.role === 'assistant') {
@@ -261,7 +286,10 @@ async function send() {
     const failed = messages.value[assistantIndex]
     if (failed?.role === 'assistant' && !failed.content && !failed.reasoning) messages.value.pop()
   } finally {
+    finalizeStreamBuffer()
     streaming.value = false
+    awaitingFirstToken.value = false
+    activeAssistantIndex = -1
     abortCtrl = null
     await scrollToBottom(true)
   }
@@ -412,7 +440,7 @@ onMounted(async () => {
       <div
         ref="messagesEl"
         class="flex-1 overflow-y-auto chat-scroll px-4 sm:px-8 py-6"
-        @scroll="onMessagesScroll"
+        @scroll="onScroll"
       >
         <div v-if="!messages.length" class="h-full flex flex-col items-center justify-center text-center px-4">
           <MatuLogo size="lg" class="mb-4 opacity-90" />
@@ -425,7 +453,7 @@ onMounted(async () => {
         <div v-else class="max-w-3xl mx-auto space-y-6">
           <div
             v-for="(msg, i) in messages"
-            :key="i"
+            :key="msg.id"
             class="flex gap-3"
             :class="msg.role === 'user' ? 'justify-end' : ''"
           >
@@ -464,7 +492,12 @@ onMounted(async () => {
 
               <!-- Respuesta -->
               <div
-                v-if="msg.role === 'user' || msg.content || (streaming && i === messages.length - 1 && msg.role === 'assistant' && !msg.content)"
+                v-if="
+                  msg.role === 'user' ||
+                  msg.content ||
+                  msg.reasoning ||
+                  (streaming && i === messages.length - 1 && msg.role === 'assistant')
+                "
                 class="rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
                 :class="
                   msg.role === 'user'
@@ -473,22 +506,29 @@ onMounted(async () => {
                 "
               >
                 <template v-if="msg.content">{{ msg.content }}</template>
+                <TypingIndicator
+                  v-else-if="
+                    streaming &&
+                    i === messages.length - 1 &&
+                    msg.role === 'assistant' &&
+                    awaitingFirstToken
+                  "
+                />
                 <span
-                  v-else-if="streaming && i === messages.length - 1"
-                  class="inline-flex gap-1 items-center py-1"
-                >
-                  <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce" />
-                  <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.15s]" />
-                  <span class="w-1.5 h-1.5 rounded-full bg-matu-blue animate-bounce [animation-delay:0.3s]" />
-                </span>
-                <span
-                  v-if="streaming && i === messages.length - 1 && msg.role === 'assistant' && msg.content"
-                  class="inline-block w-1.5 h-4 ml-0.5 bg-matu-blue animate-pulse align-middle"
+                  v-if="
+                    streaming &&
+                    i === messages.length - 1 &&
+                    msg.role === 'assistant' &&
+                    msg.content
+                  "
+                  class="inline-block w-0.5 h-4 ml-0.5 bg-matu-blue animate-pulse align-middle rounded-sm"
+                  aria-hidden="true"
                 />
               </div>
             </div>
           </div>
-          <div ref="bottomEl" class="h-px shrink-0" aria-hidden="true" />
+
+          <div ref="bottomEl" class="h-px shrink-0 scroll-mt-4" aria-hidden="true" />
         </div>
       </div>
 
