@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import {
   MessageSquarePlus,
   PanelLeftClose,
   PanelLeft,
+  Menu,
   Send,
   Square,
   LogOut,
   KeyRound,
   BookOpen,
+  CreditCard,
   ChevronDown,
   Mic,
   MicOff,
   Brain,
+  Trash2,
 } from '@lucide/vue'
 import MatuLogo from '../components/MatuLogo.vue'
 import TypingIndicator from '../components/TypingIndicator.vue'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal.vue'
 import { useChatAutoScroll } from '../composables/useChatAutoScroll'
 import { useSpeechRecognition } from '../composables/useSpeechRecognition'
 import { api, setToken, type User } from '../lib/api'
@@ -25,13 +29,16 @@ import {
   type ChatSession,
   createChatMessage,
   createThinkStreamParser,
+  createChatSession,
+  deleteChatSession,
+  fetchChatSession,
+  fetchChatSessions,
   fetchDefaultModel,
   filterChatModels,
   listModels,
-  loadSessions,
-  newSessionId,
+  migrateLegacySessions,
   pickDefaultModel,
-  saveSessions,
+  syncChatSession,
   streamChatCompletion,
   titleFromMessage,
 } from '../lib/chat'
@@ -48,6 +55,12 @@ const streaming = ref(false)
 const awaitingFirstToken = ref(false)
 const error = ref('')
 const sidebarOpen = ref(true)
+const isMobile = ref(false)
+const loadingSessions = ref(false)
+const loadingSession = ref(false)
+const deleteModalOpen = ref(false)
+const deleteTarget = ref<ChatSession | null>(null)
+const deleting = ref(false)
 const messagesEl = ref<HTMLElement | null>(null)
 const bottomEl = ref<HTMLElement | null>(null)
 const { onScroll, pinToBottom, scrollToBottom, scheduleScroll } = useChatAutoScroll(
@@ -55,10 +68,57 @@ const { onScroll, pinToBottom, scrollToBottom, scheduleScroll } = useChatAutoScr
   bottomEl,
 )
 let abortCtrl: AbortController | null = null
-let streamFlushRaf = 0
-let pendingContent = ''
-let pendingReasoning = ''
 let activeAssistantIndex = -1
+/** Texto en vivo durante el stream (no va a msg.content hasta commit) */
+const streamDraft = ref('')
+const streamReasoningDraft = ref('')
+
+function liveDraft(index: number) {
+  return streaming.value && index === activeAssistantIndex ? streamDraft.value : ''
+}
+
+function liveReasoningDraft(index: number) {
+  return streaming.value && index === activeAssistantIndex ? streamReasoningDraft.value : ''
+}
+
+function resetStreamDraft(index: number) {
+  activeAssistantIndex = index
+  streamDraft.value = ''
+  streamReasoningDraft.value = ''
+}
+
+async function appendStreamContent(text: string) {
+  if (!text) return
+  streamDraft.value += text
+  awaitingFirstToken.value = false
+  scheduleScroll(true)
+  await nextTick()
+}
+
+async function appendStreamReasoning(text: string) {
+  if (!text) return
+  streamReasoningDraft.value += text
+  awaitingFirstToken.value = false
+  scheduleScroll(true)
+  await nextTick()
+}
+
+function commitStreamDraft() {
+  if (activeAssistantIndex < 0) return
+  const live = messages.value[activeAssistantIndex]
+  if (!live || live.role !== 'assistant') return
+
+  const patch: Partial<ChatMessage> = {}
+  if (streamDraft.value) patch.content = live.content + streamDraft.value
+  if (streamReasoningDraft.value) {
+    patch.reasoning = (live.reasoning ?? '') + streamReasoningDraft.value
+    patch.reasoningOpen = live.reasoningOpen ?? true
+  }
+  if (Object.keys(patch).length > 0) patchAssistantMessage(activeAssistantIndex, patch)
+
+  streamDraft.value = ''
+  streamReasoningDraft.value = ''
+}
 
 function ensureMessageId(msg: ChatMessage): ChatMessage {
   return msg.id ? msg : { ...msg, id: crypto.randomUUID() }
@@ -69,62 +129,6 @@ function patchAssistantMessage(index: number, patch: Partial<ChatMessage>) {
   if (!current) return
   messages.value[index] = { ...current, ...patch }
   if (patch.content || patch.reasoning) awaitingFirstToken.value = false
-}
-
-function flushStreamBuffer(forceScroll = true) {
-  streamFlushRaf = 0
-  if (activeAssistantIndex < 0) return
-
-  const live = messages.value[activeAssistantIndex]
-  if (!live || live.role !== 'assistant') return
-
-  const patch: Partial<ChatMessage> = {}
-  if (pendingContent) {
-    patch.content = live.content + pendingContent
-    pendingContent = ''
-  }
-  if (pendingReasoning) {
-    patch.reasoning = (live.reasoning ?? '') + pendingReasoning
-    patch.reasoningOpen = true
-    pendingReasoning = ''
-  }
-
-  if (Object.keys(patch).length === 0) return
-  patchAssistantMessage(activeAssistantIndex, patch)
-  if (forceScroll) scheduleScroll(true)
-}
-
-function scheduleStreamFlush() {
-  if (streamFlushRaf) return
-  streamFlushRaf = requestAnimationFrame(() => flushStreamBuffer(true))
-}
-
-function resetStreamBuffer(index: number) {
-  if (streamFlushRaf) {
-    cancelAnimationFrame(streamFlushRaf)
-    streamFlushRaf = 0
-  }
-  pendingContent = ''
-  pendingReasoning = ''
-  activeAssistantIndex = index
-}
-
-function appendStreamContent(text: string) {
-  pendingContent += text
-  scheduleStreamFlush()
-}
-
-function appendStreamReasoning(text: string) {
-  pendingReasoning += text
-  scheduleStreamFlush()
-}
-
-function finalizeStreamBuffer() {
-  if (streamFlushRaf) {
-    cancelAnimationFrame(streamFlushRaf)
-    streamFlushRaf = 0
-  }
-  flushStreamBuffer(false)
 }
 
 watch(
@@ -158,9 +162,71 @@ const groupedSessions = computed(() => {
   return groups.filter((g) => g.items.length)
 })
 
-function persist() {
+function syncViewport() {
+  isMobile.value = window.matchMedia('(max-width: 1023px)').matches
+}
+
+function closeMobileSidebar() {
+  if (isMobile.value) sidebarOpen.value = false
+}
+
+function openMobileSidebar() {
+  sidebarOpen.value = true
+}
+
+async function loadSessionList() {
+  loadingSessions.value = true
+  try {
+    sessions.value = await fetchChatSessions()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'No se pudieron cargar los chats'
+  } finally {
+    loadingSessions.value = false
+  }
+}
+
+async function persistSession(sessionId: string) {
   if (!user.value) return
-  saveSessions(user.value.id, sessions.value)
+  const idx = sessions.value.findIndex((s) => s.id === sessionId)
+  const existing = idx >= 0 ? sessions.value[idx] : null
+  const payload: ChatSession = {
+    id: sessionId,
+    title: existing?.title ?? 'Nueva conversación',
+    messages: messages.value.map(({ reasoningOpen: _o, ...m }) => m),
+    updatedAt: Date.now(),
+    model: model.value,
+  }
+  if (idx >= 0) sessions.value[idx] = payload
+  else sessions.value.unshift(payload)
+
+  try {
+    await syncChatSession(payload, model.value)
+    sessions.value = [...sessions.value].sort((a, b) => b.updatedAt - a.updatedAt)
+  } catch {
+    error.value = 'No se pudo guardar la conversación'
+  }
+}
+
+function requestDeleteSession(session: ChatSession) {
+  deleteTarget.value = session
+  deleteModalOpen.value = true
+}
+
+async function confirmDeleteSession() {
+  if (!deleteTarget.value) return
+  deleting.value = true
+  error.value = ''
+  try {
+    await deleteChatSession(deleteTarget.value.id)
+    sessions.value = sessions.value.filter((s) => s.id !== deleteTarget.value!.id)
+    if (activeId.value === deleteTarget.value.id) startNewChat()
+    deleteModalOpen.value = false
+    deleteTarget.value = null
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'No se pudo eliminar el chat'
+  } finally {
+    deleting.value = false
+  }
 }
 
 function startNewChat() {
@@ -168,16 +234,30 @@ function startNewChat() {
   messages.value = []
   error.value = ''
   input.value = ''
+  closeMobileSidebar()
 }
 
-function openSession(id: string) {
-  const session = sessions.value.find((s) => s.id === id)
-  if (!session) return
-  activeId.value = id
-  messages.value = session.messages.map((m) => ensureMessageId({ ...m }))
+async function openSession(id: string) {
+  if (streaming.value) return
   error.value = ''
-  pinToBottom()
-  void scrollToBottom(true)
+  loadingSession.value = true
+  try {
+    const session = await fetchChatSession(id)
+    activeId.value = id
+    messages.value = session.messages.map((m) => ensureMessageId({ ...m }))
+    const idx = sessions.value.findIndex((s) => s.id === id)
+    const merged = { ...session, messages: [...messages.value] }
+    if (idx >= 0) sessions.value[idx] = merged
+    else sessions.value.unshift(merged)
+    if (session.model) model.value = pickDefaultModel(models.value, session.model)
+    closeMobileSidebar()
+    pinToBottom()
+    await scrollToBottom(true)
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'No se pudo abrir el chat'
+  } finally {
+    loadingSession.value = false
+  }
 }
 
 function toggleReasoning(index: number) {
@@ -204,14 +284,22 @@ async function send() {
 
   let sessionId = activeId.value
   if (!sessionId) {
-    sessionId = newSessionId()
-    activeId.value = sessionId
-    sessions.value.unshift({
-      id: sessionId,
-      title: titleFromMessage(text),
-      messages: [...messages.value],
-      updatedAt: Date.now(),
-    })
+    try {
+      const created = await createChatSession(titleFromMessage(text), model.value)
+      sessionId = created.id
+      activeId.value = sessionId
+      sessions.value.unshift({
+        ...created,
+        title: titleFromMessage(text),
+        messages: [...messages.value],
+        updatedAt: Date.now(),
+        model: model.value,
+      })
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'No se pudo crear la conversación'
+      messages.value.pop()
+      return
+    }
   } else {
     const session = sessions.value.find((s) => s.id === sessionId)
     if (session) {
@@ -220,11 +308,11 @@ async function send() {
       if (session.title === 'Nueva conversación') session.title = titleFromMessage(text)
     }
   }
-  persist()
+  await persistSession(sessionId)
 
   const assistantMsg = createChatMessage('assistant')
   const assistantIndex = messages.value.length
-  resetStreamBuffer(assistantIndex)
+  resetStreamDraft(assistantIndex)
   messages.value.push(assistantMsg)
   await scrollToBottom(true)
 
@@ -245,23 +333,23 @@ async function send() {
       if (messages.value[assistantIndex]?.role !== 'assistant') break
 
       if (part.type === 'reasoning') {
-        appendStreamReasoning(part.text)
+        await appendStreamReasoning(part.text)
       } else {
         for (const piece of thinkParser.feed(part.text)) {
           if (messages.value[assistantIndex]?.role !== 'assistant') break
-          if (piece.type === 'reasoning') appendStreamReasoning(piece.text)
-          else appendStreamContent(piece.text)
+          if (piece.type === 'reasoning') await appendStreamReasoning(piece.text)
+          else await appendStreamContent(piece.text)
         }
       }
     }
 
     for (const piece of thinkParser.flush()) {
       if (messages.value[assistantIndex]?.role !== 'assistant') break
-      if (piece.type === 'reasoning') appendStreamReasoning(piece.text)
-      else appendStreamContent(piece.text)
+      if (piece.type === 'reasoning') await appendStreamReasoning(piece.text)
+      else await appendStreamContent(piece.text)
     }
 
-    finalizeStreamBuffer()
+    commitStreamDraft()
 
     const finalMsg = messages.value[assistantIndex]
     if (finalMsg?.role === 'assistant') {
@@ -277,7 +365,7 @@ async function send() {
       session.messages = [...messages.value]
       session.updatedAt = Date.now()
       sessions.value = [...sessions.value].sort((a, b) => b.updatedAt - a.updatedAt)
-      persist()
+      await persistSession(sessionId)
     }
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') return
@@ -286,7 +374,7 @@ async function send() {
     const failed = messages.value[assistantIndex]
     if (failed?.role === 'assistant' && !failed.content && !failed.reasoning) messages.value.pop()
   } finally {
-    finalizeStreamBuffer()
+    commitStreamDraft()
     streaming.value = false
     awaitingFirstToken.value = false
     activeAssistantIndex = -1
@@ -308,10 +396,18 @@ function logout() {
 }
 
 onMounted(async () => {
+  syncViewport()
+  window.addEventListener('resize', syncViewport)
+  if (window.matchMedia('(max-width: 1023px)').matches) sidebarOpen.value = false
+
   try {
     const me = await api.me()
     user.value = me.user
-    sessions.value = loadSessions(me.user.id)
+    await loadSessionList()
+    if (!sessions.value.length) {
+      await migrateLegacySessions(me.user.id)
+      await loadSessionList()
+    }
     const preferred = await fetchDefaultModel()
     const all = await listModels()
     models.value = filterChatModels(all)
@@ -320,13 +416,30 @@ onMounted(async () => {
     router.push('/login')
   }
 })
+
+onUnmounted(() => {
+  window.removeEventListener('resize', syncViewport)
+})
 </script>
 
 <template>
-  <div class="h-dvh flex bg-white text-matu-text overflow-hidden">
+  <div class="h-dvh flex bg-white text-matu-text overflow-hidden relative">
+    <!-- Backdrop móvil -->
+    <div
+      v-if="isMobile && sidebarOpen"
+      class="fixed inset-0 z-40 bg-black/40 lg:hidden"
+      aria-hidden="true"
+      @click="closeMobileSidebar"
+    />
+
     <aside
-      v-show="sidebarOpen"
-      class="w-64 shrink-0 border-r border-matu-border flex flex-col bg-matu-surface/50"
+      v-show="sidebarOpen || !isMobile"
+      class="flex flex-col bg-matu-surface/50 border-r border-matu-border shrink-0 z-50"
+      :class="
+        isMobile
+          ? 'fixed inset-y-0 left-0 w-[min(100%,18rem)] max-w-[85vw] shadow-xl'
+          : 'w-64 relative'
+      "
     >
       <div class="p-4 flex items-center justify-between gap-2">
         <RouterLink to="/">
@@ -335,7 +448,7 @@ onMounted(async () => {
         <button
           type="button"
           class="p-1.5 rounded-lg text-matu-muted hover:bg-white hover:text-matu-text transition lg:hidden"
-          @click="sidebarOpen = false"
+          @click="closeMobileSidebar"
         >
           <PanelLeftClose class="w-4 h-4" />
         </button>
@@ -353,30 +466,48 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div class="flex-1 overflow-y-auto chat-scroll px-2 pb-2">
+      <div class="flex-1 overflow-y-auto chat-scroll px-2 pb-2 min-h-0">
+        <p v-if="loadingSessions" class="px-3 py-4 text-xs text-matu-muted">Cargando chats…</p>
+        <p v-else-if="!groupedSessions.length" class="px-3 py-4 text-xs text-matu-muted">
+          Sin conversaciones aún
+        </p>
         <template v-for="group in groupedSessions" :key="group.label">
           <p class="px-2 py-2 text-xs text-matu-muted font-medium">{{ group.label }}</p>
-          <button
+          <div
             v-for="session in group.items"
             :key="session.id"
-            type="button"
-            class="w-full text-left px-3 py-2 rounded-lg text-sm truncate transition mb-0.5"
-            :class="
-              activeId === session.id
-                ? 'bg-matu-blue-soft text-matu-blue font-medium'
-                : 'text-matu-muted hover:bg-white hover:text-matu-text'
-            "
-            @click="openSession(session.id)"
+            class="group flex items-center gap-0.5 mb-0.5"
           >
-            {{ session.title }}
-          </button>
+            <button
+              type="button"
+              class="flex-1 min-w-0 text-left px-3 py-2 rounded-lg text-sm truncate transition"
+              :class="
+                activeId === session.id
+                  ? 'bg-matu-blue-soft text-matu-blue font-medium'
+                  : 'text-matu-muted hover:bg-white hover:text-matu-text'
+              "
+              :disabled="loadingSession"
+              @click="openSession(session.id)"
+            >
+              {{ session.title }}
+            </button>
+            <button
+              type="button"
+              class="shrink-0 p-2 rounded-lg text-matu-muted hover:text-red-500 hover:bg-red-50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition"
+              title="Eliminar chat"
+              @click="requestDeleteSession(session)"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </template>
       </div>
 
-      <div class="border-t border-matu-border p-3 space-y-1">
+      <div class="border-t border-matu-border p-3 space-y-1 shrink-0">
         <RouterLink
           to="/docs"
           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-matu-muted hover:bg-white hover:text-matu-text transition"
+          @click="closeMobileSidebar"
         >
           <BookOpen class="w-4 h-4" />
           Documentación
@@ -384,9 +515,18 @@ onMounted(async () => {
         <RouterLink
           to="/dashboard"
           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-matu-muted hover:bg-white hover:text-matu-text transition"
+          @click="closeMobileSidebar"
         >
           <KeyRound class="w-4 h-4" />
           API Keys
+        </RouterLink>
+        <RouterLink
+          to="/billing"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-matu-muted hover:bg-white hover:text-matu-text transition"
+          @click="closeMobileSidebar"
+        >
+          <CreditCard class="w-4 h-4" />
+          Facturación
         </RouterLink>
         <div class="flex items-center gap-2 px-3 py-2 mt-1">
           <div
@@ -411,24 +551,32 @@ onMounted(async () => {
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="flex items-center gap-3 px-4 py-3 border-b border-matu-border shrink-0">
+      <header class="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-matu-border shrink-0">
         <button
-          v-if="!sidebarOpen"
           type="button"
-          class="p-2 rounded-lg text-matu-muted hover:bg-matu-surface transition"
+          class="p-2 rounded-lg text-matu-muted hover:bg-matu-surface transition lg:hidden"
+          title="Menú"
+          @click="openMobileSidebar"
+        >
+          <Menu class="w-5 h-5" />
+        </button>
+        <button
+          v-if="!isMobile && !sidebarOpen"
+          type="button"
+          class="p-2 rounded-lg text-matu-muted hover:bg-matu-surface transition hidden lg:flex"
           @click="sidebarOpen = true"
         >
           <PanelLeft class="w-4 h-4" />
         </button>
-        <div class="flex-1 flex items-center justify-center gap-2">
+        <div class="flex-1 flex items-center justify-center gap-2 min-w-0">
           <MatuLogo size="sm" :show-text="false" />
-          <span class="font-medium text-matu-text">Matu AI</span>
+          <span class="font-medium text-matu-text truncate">Matu AI</span>
         </div>
         <select
           v-if="models.length > 1"
           v-model="model"
           :disabled="streaming"
-          class="text-xs sm:text-sm rounded-lg border border-matu-border bg-white px-2 py-1.5 text-matu-muted focus:outline-none focus:border-matu-blue max-w-[160px] truncate"
+          class="text-xs sm:text-sm rounded-lg border border-matu-border bg-white px-2 py-1.5 text-matu-muted focus:outline-none focus:border-matu-blue max-w-[120px] sm:max-w-[160px] truncate shrink-0"
         >
           <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
         </select>
@@ -442,7 +590,7 @@ onMounted(async () => {
         class="flex-1 overflow-y-auto chat-scroll px-4 sm:px-8 py-6"
         @scroll="onScroll"
       >
-        <div v-if="!messages.length" class="h-full flex flex-col items-center justify-center text-center px-4">
+        <div v-if="!messages.length" class="h-full flex flex-col items-center justify-center text-center px-4 py-8">
           <MatuLogo size="lg" class="mb-4 opacity-90" />
           <h2 class="text-lg font-medium text-matu-text mb-2">¿En qué puedo ayudarte?</h2>
           <p class="text-sm text-matu-muted max-w-sm">
@@ -464,10 +612,13 @@ onMounted(async () => {
               <MatuLogo size="sm" :show-text="false" class="scale-75" />
             </div>
 
-            <div class="max-w-[85%] space-y-2">
+            <div class="max-w-[85%] sm:max-w-[85%] space-y-2">
               <!-- Razonamiento colapsable -->
               <div
-                v-if="msg.role === 'assistant' && msg.reasoning"
+                v-if="
+                  msg.role === 'assistant' &&
+                  (msg.reasoning || liveReasoningDraft(i))
+                "
                 class="rounded-xl border border-matu-border bg-matu-surface/80 overflow-hidden"
               >
                 <button
@@ -486,7 +637,7 @@ onMounted(async () => {
                   v-show="msg.reasoningOpen !== false"
                   class="px-3 pb-3 text-xs text-matu-muted leading-relaxed whitespace-pre-wrap border-t border-matu-border/60 pt-2 max-h-64 overflow-y-auto chat-scroll"
                 >
-                  {{ msg.reasoning }}
+                  {{ msg.reasoning }}{{ liveReasoningDraft(i) }}
                 </div>
               </div>
 
@@ -495,8 +646,8 @@ onMounted(async () => {
                 v-if="
                   msg.role === 'user' ||
                   msg.content ||
-                  msg.reasoning ||
-                  (streaming && i === messages.length - 1 && msg.role === 'assistant')
+                  liveDraft(i) ||
+                  (streaming && i === messages.length - 1 && msg.role === 'assistant' && awaitingFirstToken)
                 "
                 class="rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
                 :class="
@@ -505,7 +656,9 @@ onMounted(async () => {
                     : 'bg-matu-surface border border-matu-border text-matu-text'
                 "
               >
-                <template v-if="msg.content">{{ msg.content }}</template>
+                <template v-if="msg.content || liveDraft(i)">
+                  {{ msg.content }}{{ liveDraft(i) }}
+                </template>
                 <TypingIndicator
                   v-else-if="
                     streaming &&
@@ -519,7 +672,7 @@ onMounted(async () => {
                     streaming &&
                     i === messages.length - 1 &&
                     msg.role === 'assistant' &&
-                    msg.content
+                    (msg.content || liveDraft(i))
                   "
                   class="inline-block w-0.5 h-4 ml-0.5 bg-matu-blue animate-pulse align-middle rounded-sm"
                   aria-hidden="true"
@@ -587,5 +740,14 @@ onMounted(async () => {
         </form>
       </div>
     </div>
+
+    <ConfirmDeleteModal
+      :open="deleteModalOpen"
+      title="Eliminar conversación"
+      description="Se borrarán todos los mensajes de este chat de forma permanente."
+      :loading="deleting"
+      @close="deleteModalOpen = false"
+      @confirm="confirmDeleteSession"
+    />
   </div>
 </template>

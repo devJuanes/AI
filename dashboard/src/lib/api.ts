@@ -15,6 +15,21 @@ export interface ApiKeyRecord {
   createdAt: string
 }
 
+export interface ChatSessionRecord {
+  id: string
+  title: string
+  model: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChatMessageRecord {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  reasoning?: string | null
+}
+
 function getToken(): string | null {
   return localStorage.getItem('matu_ai_token')
 }
@@ -62,4 +77,27 @@ export const api = {
     }),
 
   revokeKey: (id: string) => request<{ ok: boolean }>(`/api/keys/${id}`, { method: 'DELETE' }),
+
+  listChatSessions: () => request<{ sessions: ChatSessionRecord[] }>('/api/chat/sessions'),
+
+  createChatSession: (body: { title?: string; model?: string | null }) =>
+    request<{ session: ChatSessionRecord; messages: ChatMessageRecord[] }>('/api/chat/sessions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getChatSession: (id: string) =>
+    request<{ session: ChatSessionRecord; messages: ChatMessageRecord[] }>(`/api/chat/sessions/${id}`),
+
+  syncChatSession: (
+    id: string,
+    body: { title?: string; model?: string | null; messages: ChatMessageRecord[] },
+  ) =>
+    request<{ session: ChatSessionRecord; messages: ChatMessageRecord[] }>(`/api/chat/sessions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  deleteChatSession: (id: string) =>
+    request<{ ok: boolean }>(`/api/chat/sessions/${id}`, { method: 'DELETE' }),
 }

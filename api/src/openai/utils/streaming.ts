@@ -38,7 +38,12 @@ export async function streamOllamaChat(options: StreamChatOptions): Promise<void
   const flush = () => {
     const raw = reply.raw as NodeJS.WritableStream & { flush?: () => void }
     raw.flush?.()
+    reply.raw.socket?.uncork?.()
   }
+
+  // Abre el stream de inmediato (evita buffering en nginx/proxies)
+  reply.raw.write(': stream-open\n\n')
+  flush()
 
   const reader = res.body?.getReader()
   if (!reader) throw new Error('Stream no disponible')

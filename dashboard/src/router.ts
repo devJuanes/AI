@@ -35,6 +35,11 @@ const router = createRouter({
       component: () => import('./views/DashboardView.vue'),
       meta: { auth: true },
     },
+    {
+      path: '/billing',
+      component: () => import('./views/BillingView.vue'),
+      meta: { auth: true },
+    },
   ],
 })
 

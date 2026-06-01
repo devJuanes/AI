@@ -1,4 +1,5 @@
 import { getToken } from './api'
+import { api } from './api'
 
 const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
@@ -25,6 +26,7 @@ export interface ChatSession {
   title: string
   messages: ChatMessage[]
   updatedAt: number
+  model?: string
 }
 
 export type StreamPart =
@@ -211,7 +213,71 @@ export async function* streamChatCompletion(
 
 const STORAGE_KEY = 'matu_ai_chat_sessions'
 
-export function loadSessions(userId: string): ChatSession[] {
+function rowToSession(
+  row: { id: string; title: string; model: string | null; updatedAt: string },
+  messages: ChatMessage[] = [],
+): ChatSession {
+  return {
+    id: row.id,
+    title: row.title,
+    model: row.model ?? undefined,
+    updatedAt: new Date(row.updatedAt).getTime(),
+    messages,
+  }
+}
+
+export async function fetchChatSessions(): Promise<ChatSession[]> {
+  const { sessions } = await api.listChatSessions()
+  return sessions.map((s) => rowToSession(s))
+}
+
+export async function fetchChatSession(id: string): Promise<ChatSession> {
+  const { session, messages } = await api.getChatSession(id)
+  return rowToSession(session, messages.map(apiMessageToChat))
+}
+
+export async function createChatSession(title: string, model?: string): Promise<ChatSession> {
+  const { session } = await api.createChatSession({ title, model: model ?? null })
+  return rowToSession(session)
+}
+
+export async function syncChatSession(session: ChatSession, model?: string): Promise<void> {
+  await api.syncChatSession(session.id, {
+    title: session.title,
+    model: model ?? session.model ?? null,
+    messages: session.messages.map(chatMessageToApi),
+  })
+}
+
+export async function deleteChatSession(id: string): Promise<void> {
+  await api.deleteChatSession(id)
+}
+
+function apiMessageToChat(m: {
+  id: string
+  role: ChatMessage['role']
+  content: string
+  reasoning?: string | null
+}): ChatMessage {
+  return {
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    reasoning: m.reasoning ?? undefined,
+  }
+}
+
+function chatMessageToApi(m: ChatMessage) {
+  return {
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    reasoning: m.reasoning ?? null,
+  }
+}
+
+/** Migración única desde localStorage */
+export function loadLegacySessions(userId: string): ChatSession[] {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}:${userId}`)
     if (!raw) return []
@@ -227,6 +293,36 @@ export function loadSessions(userId: string): ChatSession[] {
   }
 }
 
+export function clearLegacySessions(userId: string) {
+  localStorage.removeItem(`${STORAGE_KEY}:${userId}`)
+}
+
+export async function migrateLegacySessions(userId: string): Promise<number> {
+  const legacy = loadLegacySessions(userId)
+  if (!legacy.length) return 0
+
+  let migrated = 0
+  for (const session of legacy.slice(0, 50)) {
+    try {
+      const created = await createChatSession(session.title, session.model)
+      if (session.messages.length) {
+        await syncChatSession({ ...created, messages: session.messages, updatedAt: session.updatedAt })
+      }
+      migrated++
+    } catch {
+      /* omitir sesiones que fallen */
+    }
+  }
+  if (migrated > 0) clearLegacySessions(userId)
+  return migrated
+}
+
+/** @deprecated usar fetchChatSessions */
+export function loadSessions(userId: string): ChatSession[] {
+  return loadLegacySessions(userId)
+}
+
+/** @deprecated usar syncChatSession */
 export function saveSessions(userId: string, sessions: ChatSession[]) {
   localStorage.setItem(`${STORAGE_KEY}:${userId}`, JSON.stringify(sessions.slice(0, 50)))
 }

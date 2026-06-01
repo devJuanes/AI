@@ -6,6 +6,7 @@ import rateLimit from '@fastify/rate-limit'
 import { randomUUID } from 'node:crypto'
 import { config } from './config.js'
 import { authRoutes } from './routes/auth.js'
+import { chatSessionsRoutes } from './routes/chat-sessions.js'
 import { keysRoutes } from './routes/keys.js'
 import { openaiRoutes } from './openai/index.js'
 import { listOllamaModels } from './services/ollama.js'
@@ -33,6 +34,9 @@ await app.register(rateLimit, {
 })
 
 app.addHook('onSend', async (request, reply, payload) => {
+  if (reply.getHeader('content-type')?.toString().includes('text/event-stream')) {
+    return payload
+  }
   reply.header('X-Request-ID', request.id)
   if (request.url.startsWith('/v1')) {
     reply.header('OpenAI-Organization', 'matubyte')
@@ -84,12 +88,14 @@ app.get('/', async () => ({
     dashboard: {
       auth: '/api/auth/register | /api/auth/login',
       keys: '/api/keys',
+      chat: '/api/chat/sessions',
     },
   },
 }))
 
 await app.register(authRoutes)
 await app.register(keysRoutes)
+await app.register(chatSessionsRoutes)
 await app.register(openaiRoutes)
 
 try {

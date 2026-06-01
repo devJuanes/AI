@@ -20,6 +20,7 @@ export async function ollamaFetch(path: string, init?: RequestInit): Promise<Res
   const url = `${config.ollamaBaseUrl}${path}`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), config.ollamaTimeoutMs)
+  const streaming = init?.body?.toString().includes('"stream":true')
 
   try {
     return await fetch(url, {
@@ -27,7 +28,7 @@ export async function ollamaFetch(path: string, init?: RequestInit): Promise<Res
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json',
+        Accept: streaming ? 'application/x-ndjson' : 'application/json',
         ...init?.headers,
       },
     })

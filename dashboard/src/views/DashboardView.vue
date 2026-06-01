@@ -155,7 +155,16 @@ onMounted(load)
 
       <p class="text-sm text-matu-muted">
         ¿Cómo integrar?
-        <RouterLink to="/docs" class="text-matu-blue hover:text-matu-blue-hover font-medium">Ver documentación completa →</RouterLink>
+        <RouterLink
+          to="/billing"
+          class="text-matu-blue hover:text-matu-blue-hover font-medium"
+        >
+          Facturación API
+        </RouterLink>
+        ·
+        <RouterLink to="/docs" class="text-matu-blue hover:text-matu-blue-hover font-medium">
+          Ver documentación completa →
+        </RouterLink>
       </p>
     </div>
   </AppLayout>

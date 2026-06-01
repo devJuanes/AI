@@ -12,6 +12,7 @@ import { normalizeChatMessages, messagesToPrompt } from '../utils/messages.js'
 import { applyDashboardOllamaTuning, pickOllamaFormat, toOllamaOptions } from '../utils/ollama-options.js'
 import { openAIId } from '../utils/ids.js'
 import { streamOllamaChat } from '../utils/streaming.js'
+import { buildMatuSystemPrompt } from '../utils/matu-prompt.js'
 import { supportsOllamaThinking } from '../utils/thinking.js'
 import { withDashboardOllamaLock } from '../../services/ollama-queue.js'
 
@@ -71,8 +72,7 @@ export async function chatRoutes(app: FastifyInstance) {
     if (isDashboard) {
       messages.unshift({
         role: 'system',
-        content:
-          'Eres Matu AI, asistente de MatuByte. Responde en español, claro y conciso. Ve al grano. No uses tags think ni expliques tu razonamiento interno.',
+        content: buildMatuSystemPrompt(),
       })
     }
 
@@ -104,7 +104,7 @@ export async function chatRoutes(app: FastifyInstance) {
               if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
             },
           })
-          return reply
+          return
         }
 
         const res = await ollamaFetch('/api/chat', {

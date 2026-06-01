@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from 'vue-router'
-import { BookOpen, KeyRound, MessageSquare, LogIn, LogOut } from '@lucide/vue'
+import { BookOpen, KeyRound, MessageSquare, LogIn, LogOut, CreditCard } from '@lucide/vue'
 import MatuLogo from '../components/MatuLogo.vue'
 import { setToken } from '../lib/api'
 
@@ -19,6 +19,7 @@ const nav = [
   { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/docs', label: 'Documentación', icon: BookOpen },
   { to: '/dashboard', label: 'API Keys', icon: KeyRound },
+  { to: '/billing', label: 'Facturación', icon: CreditCard },
 ]
 </script>
 

@@ -33,6 +33,63 @@ export interface AiApiKeyPublic {
   revokedAt?: string | null
 }
 
+export interface AiChatSessionRow {
+  id: string
+  user_id: string
+  title: string
+  model: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AiChatMessageRow {
+  id: string
+  session_id: string
+  role: string
+  content: string
+  reasoning: string | null
+  position: number
+  created_at: string
+}
+
+export interface ChatSessionPublic {
+  id: string
+  title: string
+  model: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChatMessagePublic {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  reasoning?: string | null
+}
+
+export function toPublicChatSession(
+  row: Pick<AiChatSessionRow, 'id' | 'title' | 'model' | 'created_at' | 'updated_at'>,
+): ChatSessionPublic {
+  return {
+    id: row.id,
+    title: row.title,
+    model: row.model,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export function toPublicChatMessage(
+  row: Pick<AiChatMessageRow, 'id' | 'role' | 'content' | 'reasoning'>,
+): ChatMessagePublic {
+  return {
+    id: row.id,
+    role: row.role as ChatMessagePublic['role'],
+    content: row.content,
+    reasoning: row.reasoning,
+  }
+}
+
 export function toPublicUser(row: Pick<AiUserRow, 'id' | 'email' | 'name' | 'created_at'>): AiUserPublic {
   return {
     id: row.id,
