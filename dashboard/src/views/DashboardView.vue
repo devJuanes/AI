@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Trash2, Copy, FlaskConical } from '@lucide/vue'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal.vue'
 import { api, type ApiKeyRecord } from '../lib/api'
 import { setPlaygroundApiKey } from '../lib/playground'
 
@@ -14,6 +15,9 @@ const creating = ref(false)
 const error = ref('')
 const copied = ref(false)
 const showCreate = ref(false)
+const revokeModalOpen = ref(false)
+const revoking = ref(false)
+const keyToRevoke = ref<ApiKeyRecord | null>(null)
 
 async function load() {
   loading.value = true
@@ -45,13 +49,30 @@ async function createKey() {
   }
 }
 
-async function revokeKey(id: string) {
-  if (!confirm('¿Revocar esta API Key? Las apps que la usen dejarán de funcionar.')) return
+function openRevokeModal(key: ApiKeyRecord) {
+  keyToRevoke.value = key
+  revokeModalOpen.value = true
+}
+
+function closeRevokeModal() {
+  if (revoking.value) return
+  revokeModalOpen.value = false
+  keyToRevoke.value = null
+}
+
+async function confirmRevokeKey() {
+  if (!keyToRevoke.value) return
+  revoking.value = true
+  error.value = ''
   try {
-    await api.revokeKey(id)
-    keys.value = keys.value.filter((k) => k.id !== id)
+    await api.revokeKey(keyToRevoke.value.id)
+    keys.value = keys.value.filter((k) => k.id !== keyToRevoke.value!.id)
+    revokeModalOpen.value = false
+    keyToRevoke.value = null
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Error al revocar'
+  } finally {
+    revoking.value = false
   }
 }
 
@@ -161,7 +182,7 @@ onMounted(load)
                   type="button"
                   class="p-1.5 text-matu-muted hover:text-red-600 rounded-md hover:bg-red-50"
                   title="Revocar"
-                  @click="revokeKey(key.id)"
+                  @click="openRevokeModal(key)"
                 >
                   <Trash2 class="w-4 h-4" />
                 </button>
@@ -175,5 +196,20 @@ onMounted(load)
         Aún no tienes API Keys.
       </p>
     </div>
+
+    <ConfirmDeleteModal
+      :open="revokeModalOpen"
+      mode="simple"
+      title="Revocar API Key"
+      :description="
+        keyToRevoke
+          ? `Se revocará «${keyToRevoke.name}». Las integraciones que usen esta clave dejarán de funcionar.`
+          : ''
+      "
+      confirm-label="Revocar"
+      :loading="revoking"
+      @close="closeRevokeModal"
+      @confirm="confirmRevokeKey"
+    />
   </div>
 </template>

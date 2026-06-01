@@ -8,12 +8,17 @@ const props = withDefaults(
     title?: string
     description?: string
     confirmWord?: string
+    confirmLabel?: string
+    /** typed = escribir palabra; simple = solo botones */
+    mode?: 'typed' | 'simple'
     loading?: boolean
   }>(),
   {
     title: 'Eliminar conversación',
     description: 'Esta acción no se puede deshacer. Se borrarán todos los mensajes de este chat.',
     confirmWord: 'eliminar',
+    confirmLabel: 'Eliminar',
+    mode: 'typed',
     loading: false,
   },
 )
@@ -25,9 +30,11 @@ const emit = defineEmits<{
 
 const input = ref('')
 
-const canConfirm = computed(
-  () => input.value.trim().toLowerCase() === props.confirmWord.toLowerCase() && !props.loading,
-)
+const canConfirm = computed(() => {
+  if (props.loading) return false
+  if (props.mode === 'simple') return true
+  return input.value.trim().toLowerCase() === props.confirmWord.toLowerCase()
+})
 
 watch(
   () => props.open,
@@ -65,10 +72,11 @@ function onBackdrop(e: MouseEvent) {
           </div>
         </div>
 
-        <label class="block text-sm text-matu-muted mb-2">
+        <label v-if="mode === 'typed'" class="block text-sm text-matu-muted mb-2">
           Escribe <span class="font-mono font-medium text-matu-text">{{ confirmWord }}</span> para confirmar
         </label>
         <input
+          v-if="mode === 'typed'"
           v-model="input"
           type="text"
           autocomplete="off"
@@ -77,7 +85,7 @@ function onBackdrop(e: MouseEvent) {
           @keydown.enter="canConfirm && emit('confirm')"
         />
 
-        <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+        <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end" :class="mode === 'simple' ? 'mt-2' : ''">
           <button
             type="button"
             class="rounded-xl border border-matu-border px-4 py-2.5 text-sm text-matu-muted hover:bg-matu-surface transition"
@@ -92,7 +100,7 @@ function onBackdrop(e: MouseEvent) {
             :disabled="!canConfirm"
             @click="emit('confirm')"
           >
-            {{ loading ? 'Eliminando…' : 'Eliminar chat' }}
+            {{ loading ? 'Procesando…' : confirmLabel }}
           </button>
         </div>
       </div>

@@ -764,6 +764,7 @@ onUnmounted(() => {
       :open="deleteModalOpen"
       title="Eliminar conversación"
       description="Se borrarán todos los mensajes de este chat de forma permanente."
+      confirm-label="Eliminar chat"
       :loading="deleting"
       @close="deleteModalOpen = false"
       @confirm="confirmDeleteSession"
