@@ -68,6 +68,8 @@ export async function chatRoutes(app: FastifyInstance) {
 
     if (isDashboard) {
       options = applyDashboardOllamaTuning(options)
+      if (options.temperature === undefined) options.temperature = 0.55
+      if (options.repeat_penalty === undefined) options.repeat_penalty = 1.15
     }
 
     if (isDashboard) {
