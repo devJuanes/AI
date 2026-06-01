@@ -1,0 +1,10 @@
+import os, paramiko, time
+c = paramiko.SSHClient()
+c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+c.connect("83.171.248.29", username="root", password=os.environ["SSH_PASSWORD"], timeout=30)
+t0 = time.time()
+_, o, _ = c.exec_command("""curl -s -m 60 http://127.0.0.1:11434/api/chat -d '{"model":"llama3.2:1b","messages":[{"role":"user","content":"Di hola en una linea"}],"stream":false}'""", timeout=90)
+out = o.read().decode(errors="replace").encode("ascii","replace").decode()
+print(f"elapsed {time.time()-t0:.1f}s")
+print(out[:500])
+c.close()
