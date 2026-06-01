@@ -217,13 +217,30 @@ const client = new OpenAI({
 
 ## Actualizar despliegue
 
+Desde la raíz del repo en el servidor:
+
+```bash
+cd ~/apps/matu-ai
+bash deploy.sh
+```
+
+Opciones:
+
+```bash
+bash deploy.sh --no-pull    # sin git pull
+bash deploy.sh --skip-ci    # sin npm ci (más rápido)
+bash deploy.sh --ollama     # incluye tune Ollama + llama3.2:1b
+```
+
+Manual (equivalente):
+
 ```bash
 cd ~/apps/matu-ai
 git pull
 npm ci
-npm run build
-sudo cp -r dashboard/dist/* /var/www/matu-ai/chat/dist/
-pm2 restart matu-ai-api
+npm run build --workspace=api
+pm2 restart matu-ai-api --update-env
+bash deploy/publish-chat.sh
 ```
 
 ## Troubleshooting
