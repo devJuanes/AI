@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { DASHBOARD_CHAT_KEY_ID } from '../../middleware/auth.js'
 import {
   buildChatCompletionResponse,
   logUsage,
@@ -22,6 +23,7 @@ export async function chatRoutes(app: FastifyInstance) {
 
     const body = parsed.data
     const apiKeyId = request.apiKey!.apiKeyId
+    const trackUsage = apiKeyId !== DASHBOARD_CHAT_KEY_ID
 
     if (body.n > 1) {
       return validationError(reply, 'n > 1 no soportado aún. Usa n=1.', 'n')
@@ -70,7 +72,7 @@ export async function chatRoutes(app: FastifyInstance) {
           promptText,
           endpoint,
           onComplete: async (promptTokens, completionTokens) => {
-            await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
+            if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
           },
         })
         return reply
@@ -96,7 +98,7 @@ export async function chatRoutes(app: FastifyInstance) {
       const promptTokens = data.prompt_eval_count ?? estimateTokens(promptText)
       const completionTokens = data.eval_count ?? estimateTokens(content)
 
-      await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
+      if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
 
       return buildChatCompletionResponse({
         model: body.model,

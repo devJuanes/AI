@@ -1,13 +1,11 @@
 import type { FastifyInstance } from 'fastify'
-import { requireApiKey } from '../middleware/auth.js'
+import { requireApiKey, requireApiKeyOrJwt } from '../middleware/auth.js'
 import { modelsRoutes } from './routes/models.js'
 import { chatRoutes } from './routes/chat.js'
 import { completionsRoutes } from './routes/completions.js'
 import { embeddingsRoutes } from './routes/embeddings.js'
 
 export async function openaiRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireApiKey)
-
   app.get('/v1', async () => ({
     object: 'openai-api',
     version: '1.0.0',
@@ -23,8 +21,15 @@ export async function openaiRoutes(app: FastifyInstance) {
     ],
   }))
 
-  await app.register(modelsRoutes)
-  await app.register(chatRoutes)
-  await app.register(completionsRoutes)
-  await app.register(embeddingsRoutes)
+  await app.register(async (chatApp) => {
+    chatApp.addHook('preHandler', requireApiKeyOrJwt)
+    await chatApp.register(modelsRoutes)
+    await chatApp.register(chatRoutes)
+  })
+
+  await app.register(async (apiApp) => {
+    apiApp.addHook('preHandler', requireApiKey)
+    await apiApp.register(completionsRoutes)
+    await apiApp.register(embeddingsRoutes)
+  })
 }

@@ -7,7 +7,15 @@ export function getToken(): string | null {
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/docs' },
+    {
+      path: '/',
+      component: () => import('./views/HomeView.vue'),
+    },
+    {
+      path: '/chat',
+      component: () => import('./views/ChatView.vue'),
+      meta: { auth: true },
+    },
     {
       path: '/docs',
       component: () => import('./views/DocsView.vue'),
@@ -33,7 +41,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const token = getToken()
   if (to.meta.auth && !token) return '/login'
-  if (to.meta.guest && token) return '/dashboard'
+  if (to.meta.guest && token) return '/chat'
 })
 
 export default router

@@ -70,17 +70,22 @@ onMounted(load)
   <AppLayout :user-name="user?.name">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 lg:py-10 space-y-8">
       <div>
-        <h1 class="text-2xl font-bold text-white mb-1">API Keys</h1>
-        <p class="text-slate-400 text-sm">
+        <h1 class="text-2xl font-bold text-matu-text mb-1">API Keys</h1>
+        <p class="text-matu-muted text-sm">
           Gestiona las claves para consumir la API en
-          <span class="text-indigo-400 font-mono">{{ API_BASE }}</span>
+          <span class="text-matu-blue font-mono">{{ API_BASE }}</span>
+        </p>
+        <p class="text-matu-muted text-sm mt-2">
+          El chat web no requiere API Key —
+          <RouterLink to="/chat" class="text-matu-blue hover:text-matu-blue-hover font-medium">usa el chat</RouterLink>
+          con tu sesión.
         </p>
       </div>
 
-      <section v-if="newSecret" class="rounded-xl bg-emerald-950/40 border border-emerald-800/50 p-5">
-        <p class="text-emerald-400 font-medium mb-2">¡API Key creada! Cópiala ahora — no se volverá a mostrar.</p>
+      <section v-if="newSecret" class="rounded-xl bg-emerald-50 border border-emerald-200 p-5">
+        <p class="text-emerald-700 font-medium mb-2">¡API Key creada! Cópiala ahora — no se volverá a mostrar.</p>
         <div class="flex gap-2 items-center">
-          <code class="flex-1 bg-slate-950 rounded-lg px-3 py-2 text-sm text-emerald-300 break-all">{{ newSecret }}</code>
+          <code class="flex-1 bg-white rounded-lg px-3 py-2 text-sm text-emerald-800 break-all border border-emerald-100">{{ newSecret }}</code>
           <button
             type="button"
             class="shrink-0 flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-sm text-white"
@@ -90,15 +95,15 @@ onMounted(load)
             {{ copied ? 'Copiado' : 'Copiar' }}
           </button>
         </div>
-        <button type="button" class="mt-3 text-sm text-slate-400 hover:text-white" @click="newSecret = null">
+        <button type="button" class="mt-3 text-sm text-matu-muted hover:text-matu-text" @click="newSecret = null">
           Entendido, ocultar
         </button>
       </section>
 
-      <section class="rounded-xl bg-slate-900/50 border border-slate-800 p-5">
+      <section class="rounded-xl bg-matu-surface border border-matu-border p-5">
         <div class="flex items-center gap-2 mb-4">
-          <KeyRound class="w-5 h-5 text-indigo-400" />
-          <h2 class="font-semibold text-white">Tus claves</h2>
+          <KeyRound class="w-5 h-5 text-matu-blue" />
+          <h2 class="font-semibold text-matu-text">Tus claves</h2>
         </div>
 
         <form class="flex flex-col sm:flex-row gap-2 mb-6" @submit.prevent="createKey">
@@ -106,37 +111,37 @@ onMounted(load)
             v-model="newKeyName"
             type="text"
             placeholder="Nombre (ej. MatuDoctor prod)"
-            class="flex-1 rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+            class="flex-1 rounded-xl bg-white border border-matu-border px-4 py-2.5 focus:outline-none focus:border-matu-blue"
           />
           <button
             type="submit"
             :disabled="creating"
-            class="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 px-4 py-2.5 text-white font-medium"
+            class="flex items-center justify-center gap-1.5 rounded-xl bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-50 px-4 py-2.5 text-white font-medium"
           >
             <Plus class="w-4 h-4" />
             Crear API Key
           </button>
         </form>
 
-        <p v-if="error" class="text-sm text-red-400 mb-4">{{ error }}</p>
-        <div v-if="loading" class="text-slate-500 text-sm">Cargando…</div>
+        <p v-if="error" class="text-sm text-red-500 mb-4">{{ error }}</p>
+        <div v-if="loading" class="text-matu-muted text-sm">Cargando…</div>
 
         <ul v-else-if="keys.length" class="space-y-3">
           <li
             v-for="key in keys"
             :key="key.id"
-            class="flex items-center justify-between rounded-xl bg-slate-950 border border-slate-800 px-4 py-3"
+            class="flex items-center justify-between rounded-xl bg-white border border-matu-border px-4 py-3"
           >
             <div>
-              <p class="font-medium text-white">{{ key.name }}</p>
-              <p class="text-sm text-slate-500 font-mono">{{ key.keyPrefix }}••••••••</p>
-              <p v-if="key.lastUsedAt" class="text-xs text-slate-600 mt-0.5">
+              <p class="font-medium text-matu-text">{{ key.name }}</p>
+              <p class="text-sm text-matu-muted font-mono">{{ key.keyPrefix }}••••••••</p>
+              <p v-if="key.lastUsedAt" class="text-xs text-matu-muted mt-0.5">
                 Último uso: {{ new Date(key.lastUsedAt).toLocaleString('es') }}
               </p>
             </div>
             <button
               type="button"
-              class="p-2 text-slate-500 hover:text-red-400 transition"
+              class="p-2 text-matu-muted hover:text-red-500 transition"
               title="Revocar"
               @click="revokeKey(key.id)"
             >
@@ -145,12 +150,12 @@ onMounted(load)
           </li>
         </ul>
 
-        <p v-else class="text-slate-500 text-sm">Aún no tienes API Keys. Crea una para empezar.</p>
+        <p v-else class="text-matu-muted text-sm">Aún no tienes API Keys. Crea una para integraciones externas.</p>
       </section>
 
-      <p class="text-sm text-slate-500">
+      <p class="text-sm text-matu-muted">
         ¿Cómo integrar?
-        <RouterLink to="/docs" class="text-indigo-400 hover:text-indigo-300">Ver documentación completa →</RouterLink>
+        <RouterLink to="/docs" class="text-matu-blue hover:text-matu-blue-hover font-medium">Ver documentación completa →</RouterLink>
       </p>
     </div>
   </AppLayout>

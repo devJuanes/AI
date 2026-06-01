@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import MatuLogo from '../components/MatuLogo.vue'
 import { api, setToken } from '../lib/api'
 
 const router = useRouter()
@@ -15,7 +16,7 @@ async function submit() {
   try {
     const { token } = await api.login({ email: email.value, password: password.value })
     setToken(token)
-    router.push('/dashboard')
+    router.push('/chat')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Error al iniciar sesión'
   } finally {
@@ -25,52 +26,51 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-dvh flex items-center justify-center p-6">
+  <div class="min-h-dvh matu-wave-bg flex items-center justify-center p-6">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-400 text-2xl font-bold mb-4">
-          AI
-        </div>
-        <h1 class="text-2xl font-semibold text-white">Matu AI</h1>
-        <p class="text-slate-400 mt-1">chat.matubyte.com</p>
+        <RouterLink to="/" class="inline-block mb-4">
+          <MatuLogo size="lg" />
+        </RouterLink>
+        <p class="text-matu-muted mt-2">Inicia sesión para chatear o gestionar API Keys</p>
       </div>
 
-      <form class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 space-y-5" @submit.prevent="submit">
+      <form class="matu-card p-8 space-y-5" @submit.prevent="submit">
         <div>
-          <label class="block text-sm text-slate-400 mb-1.5">Email</label>
+          <label class="block text-sm text-matu-muted mb-1.5">Email</label>
           <input
             v-model="email"
             type="email"
             required
-            class="w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+            class="w-full rounded-xl bg-white border border-matu-border px-4 py-2.5 focus:outline-none focus:border-matu-blue"
           />
         </div>
         <div>
-          <label class="block text-sm text-slate-400 mb-1.5">Contraseña</label>
+          <label class="block text-sm text-matu-muted mb-1.5">Contraseña</label>
           <input
             v-model="password"
             type="password"
             required
-            class="w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+            class="w-full rounded-xl bg-white border border-matu-border px-4 py-2.5 focus:outline-none focus:border-matu-blue"
           />
         </div>
 
-        <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+        <p v-if="error" class="text-sm text-red-500">{{ error }}</p>
 
         <button
           type="submit"
           :disabled="loading"
-          class="w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white font-medium py-2.5 transition"
+          class="w-full rounded-xl bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-50 text-white font-medium py-2.5 transition"
         >
           {{ loading ? 'Entrando…' : 'Iniciar sesión' }}
         </button>
 
-        <p class="text-center text-sm text-slate-400">
+        <p class="text-center text-sm text-matu-muted">
           ¿No tienes cuenta?
-          <RouterLink to="/register" class="text-indigo-400 hover:text-indigo-300">Regístrate</RouterLink>
+          <RouterLink to="/register" class="text-matu-blue hover:text-matu-blue-hover font-medium">Regístrate</RouterLink>
         </p>
-        <p class="text-center text-sm text-slate-500">
-          <RouterLink to="/docs" class="hover:text-slate-300">Ver documentación</RouterLink>
+        <p class="text-center text-sm text-matu-muted">
+          <RouterLink to="/" class="hover:text-matu-text">← Volver al inicio</RouterLink>
         </p>
       </form>
     </div>
