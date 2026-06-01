@@ -9,10 +9,14 @@ import {
 import { validationError, serviceUnavailable } from '../errors.js'
 import { chatCompletionSchema } from '../schemas/index.js'
 import { normalizeChatMessages, messagesToPrompt } from '../utils/messages.js'
-import { pickOllamaFormat, toOllamaOptions } from '../utils/ollama-options.js'
+import { applyDashboardOllamaTuning, pickOllamaFormat, toOllamaOptions } from '../utils/ollama-options.js'
 import { openAIId } from '../utils/ids.js'
 import { streamOllamaChat } from '../utils/streaming.js'
 import { supportsOllamaThinking } from '../utils/thinking.js'
+import { withDashboardOllamaLock } from '../../services/ollama-queue.js'
+
+const DASHBOARD_MAX_MESSAGES = 20
+const DASHBOARD_DEFAULT_MAX_TOKENS = 1024
 
 export async function chatRoutes(app: FastifyInstance) {
   app.post('/v1/chat/completions', async (request, reply) => {
@@ -39,8 +43,18 @@ export async function chatRoutes(app: FastifyInstance) {
     }
 
     let messages = normalizeChatMessages(body.messages)
-    const maxTokens = body.max_completion_tokens ?? body.max_tokens
-    const options = toOllamaOptions({
+    const isDashboard = apiKeyId === DASHBOARD_CHAT_KEY_ID
+
+    if (isDashboard && messages.length > DASHBOARD_MAX_MESSAGES) {
+      messages = messages.slice(-DASHBOARD_MAX_MESSAGES)
+    }
+
+    const maxTokens =
+      body.max_completion_tokens ??
+      body.max_tokens ??
+      (isDashboard ? DASHBOARD_DEFAULT_MAX_TOKENS : undefined)
+
+    let options = toOllamaOptions({
       temperature: body.temperature,
       top_p: body.top_p,
       max_tokens: maxTokens,
@@ -50,13 +64,15 @@ export async function chatRoutes(app: FastifyInstance) {
       presence_penalty: body.presence_penalty,
     })
 
-    const isDashboard = apiKeyId === DASHBOARD_CHAT_KEY_ID
+    if (isDashboard) {
+      options = applyDashboardOllamaTuning(options)
+    }
 
     if (isDashboard) {
       messages.unshift({
         role: 'system',
         content:
-          'Eres Matu AI. Responde siempre en español, de forma breve y útil. No incluyas razonamiento interno ni tags think en la respuesta.',
+          'Eres Matu AI, asistente de MatuByte. Responde en español, claro y conciso. Ve al grano. No uses tags think ni expliques tu razonamiento interno.',
       })
     }
 
@@ -74,56 +90,63 @@ export async function chatRoutes(app: FastifyInstance) {
     const endpoint = '/v1/chat/completions'
 
     try {
-      if (body.stream) {
-        const completionId = openAIId('chatcmpl')
-        await streamOllamaChat({
-          reply,
-          model: body.model,
-          completionId,
-          ollamaBody,
-          promptText,
-          endpoint,
-          onComplete: async (promptTokens, completionTokens) => {
-            if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
-          },
+      const run = async () => {
+        if (body.stream) {
+          const completionId = openAIId('chatcmpl')
+          await streamOllamaChat({
+            reply,
+            model: body.model,
+            completionId,
+            ollamaBody,
+            promptText,
+            endpoint,
+            onComplete: async (promptTokens, completionTokens) => {
+              if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
+            },
+          })
+          return reply
+        }
+
+        const res = await ollamaFetch('/api/chat', {
+          method: 'POST',
+          body: JSON.stringify({ ...ollamaBody, stream: false }),
         })
-        return reply
+
+        if (!res.ok) {
+          const errText = await res.text()
+          return serviceUnavailable(reply, errText || 'Error de Ollama')
+        }
+
+        const data = (await res.json()) as {
+          message?: { content?: string; thinking?: string }
+          eval_count?: number
+          prompt_eval_count?: number
+        }
+
+        let content = data.message?.content ?? ''
+        let reasoning = data.message?.thinking ?? ''
+        if (!reasoning && content) {
+          const parsed = (await import('../utils/thinking.js')).parseInlineThinking(content)
+          reasoning = parsed.reasoning
+          content = parsed.content
+        }
+        const promptTokens = data.prompt_eval_count ?? estimateTokens(promptText)
+        const completionTokens = data.eval_count ?? estimateTokens(content)
+
+        if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
+
+        return buildChatCompletionResponse({
+          model: body.model,
+          content,
+          promptTokens,
+          completionTokens,
+        })
       }
 
-      const res = await ollamaFetch('/api/chat', {
-        method: 'POST',
-        body: JSON.stringify({ ...ollamaBody, stream: false }),
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        return serviceUnavailable(reply, errText || 'Error de Ollama')
+      if (isDashboard) {
+        return await withDashboardOllamaLock(run)
       }
-
-      const data = (await res.json()) as {
-        message?: { content?: string; thinking?: string }
-        eval_count?: number
-        prompt_eval_count?: number
-      }
-
-      let content = data.message?.content ?? ''
-      let reasoning = data.message?.thinking ?? ''
-      if (!reasoning && content) {
-        const parsed = (await import('../utils/thinking.js')).parseInlineThinking(content)
-        reasoning = parsed.reasoning
-        content = parsed.content
-      }
-      const promptTokens = data.prompt_eval_count ?? estimateTokens(promptText)
-      const completionTokens = data.eval_count ?? estimateTokens(content)
-
-      if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
-
-      return buildChatCompletionResponse({
-        model: body.model,
-        content,
-        promptTokens,
-        completionTokens,
-      })
+      return await run()
     } catch (err) {
       return serviceUnavailable(reply, err instanceof Error ? err.message : 'Ollama no disponible')
     }

@@ -112,8 +112,19 @@ export async function listModels(): Promise<string[]> {
 }
 
 export function filterChatModels(models: string[]): string[] {
-  const blocked = /qwen|deepseek|qwq|r1:|\b70b\b|\b72b\b/i
-  const filtered = models.filter((m) => !blocked.test(m))
+  const blocked = /qwen|deepseek|qwq|r1:|:cloud|\b70b\b|\b72b\b/i
+  let filtered = models.filter((m) => !blocked.test(m))
+
+  if (filtered.includes('llama3.2:1b')) {
+    filtered = filtered.filter((m) => m !== 'llama3.2:latest' && m !== 'llama3.2')
+  }
+
+  filtered.sort((a, b) => {
+    if (a.includes('1b')) return -1
+    if (b.includes('1b')) return 1
+    return a.localeCompare(b)
+  })
+
   return filtered.length ? filtered : ['llama3.2:1b']
 }
 
@@ -146,6 +157,8 @@ export async function* streamChatCompletion(
       model,
       messages: messages.map(({ role, content }) => ({ role, content })),
       stream: true,
+      max_tokens: 1024,
+      temperature: 0.7,
     }),
   })
 

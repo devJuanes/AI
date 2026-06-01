@@ -21,7 +21,6 @@ export function toOllamaOptions(input: OllamaOptionsInput): Record<string, unkno
     options.stop = Array.isArray(stop) ? stop : [stop]
   }
 
-  // Aproximación: OpenAI penalties → repeat_penalty de Ollama
   if (input.frequency_penalty !== undefined || input.presence_penalty !== undefined) {
     const freq = input.frequency_penalty ?? 0
     const pres = input.presence_penalty ?? 0
@@ -29,6 +28,16 @@ export function toOllamaOptions(input: OllamaOptionsInput): Record<string, unkno
   }
 
   return options
+}
+
+/** Opciones tuned para VPS compartido (chat web) */
+export function applyDashboardOllamaTuning(options: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...options,
+    num_ctx: options.num_ctx ?? 4096,
+    num_predict: options.num_predict ?? 1024,
+    num_thread: options.num_thread ?? 4,
+  }
 }
 
 export function pickOllamaFormat(responseFormat?: { type?: string } | null): string | undefined {

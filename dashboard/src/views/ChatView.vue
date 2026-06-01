@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import {
   MessageSquarePlus,
   PanelLeftClose,
   PanelLeft,
   Send,
+  Square,
   LogOut,
   KeyRound,
   BookOpen,
@@ -45,6 +46,20 @@ const error = ref('')
 const sidebarOpen = ref(true)
 const messagesEl = ref<HTMLElement | null>(null)
 let abortCtrl: AbortController | null = null
+let streamRaf = 0
+
+function scheduleStreamRender() {
+  if (streamRaf) return
+  streamRaf = requestAnimationFrame(async () => {
+    streamRaf = 0
+    messages.value = [...messages.value]
+    await scrollToBottom()
+  })
+}
+
+function stopGeneration() {
+  abortCtrl?.abort()
+}
 
 const speech = useSpeechRecognition((text, isFinal) => {
   input.value = text
@@ -100,8 +115,6 @@ async function scrollToBottom() {
   await nextTick()
   if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
 }
-
-watch(messages, scrollToBottom, { deep: true })
 
 async function send() {
   const text = input.value.trim()
@@ -172,8 +185,7 @@ async function send() {
           }
         }
       }
-      messages.value = [...messages.value]
-      await scrollToBottom()
+      scheduleStreamRender()
     }
 
     for (const piece of thinkParser.flush()) {
@@ -187,6 +199,7 @@ async function send() {
         assistantMsg.content += piece.text
       }
     }
+    scheduleStreamRender()
 
     if (!assistantMsg.reasoning) delete assistantMsg.reasoning
     else assistantMsg.reasoningOpen = false
@@ -339,12 +352,16 @@ onMounted(async () => {
           <span class="font-medium text-matu-text">Matu AI</span>
         </div>
         <select
+          v-if="models.length > 1"
           v-model="model"
           :disabled="streaming"
           class="text-xs sm:text-sm rounded-lg border border-matu-border bg-white px-2 py-1.5 text-matu-muted focus:outline-none focus:border-matu-blue max-w-[160px] truncate"
         >
           <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
         </select>
+        <span v-else-if="models.length === 1" class="text-xs text-matu-muted hidden sm:inline">
+          {{ model }}
+        </span>
       </header>
 
       <div ref="messagesEl" class="flex-1 overflow-y-auto chat-scroll px-4 sm:px-8 py-6">
@@ -459,8 +476,18 @@ onMounted(async () => {
                 <Mic v-else class="w-4 h-4" />
               </button>
               <button
+                v-if="streaming"
+                type="button"
+                title="Detener"
+                class="w-9 h-9 rounded-full bg-matu-surface border border-matu-border text-matu-muted hover:text-matu-text flex items-center justify-center transition"
+                @click="stopGeneration"
+              >
+                <Square class="w-3.5 h-3.5 fill-current" />
+              </button>
+              <button
+                v-else
                 type="submit"
-                :disabled="!input.trim() || streaming"
+                :disabled="!input.trim()"
                 class="w-9 h-9 rounded-full bg-matu-blue hover:bg-matu-blue-hover disabled:opacity-40 text-white flex items-center justify-center transition"
               >
                 <Send class="w-4 h-4" />
