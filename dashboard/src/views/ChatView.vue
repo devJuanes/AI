@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import {
   MessageSquarePlus,
@@ -45,17 +45,44 @@ const streaming = ref(false)
 const error = ref('')
 const sidebarOpen = ref(true)
 const messagesEl = ref<HTMLElement | null>(null)
+const bottomEl = ref<HTMLElement | null>(null)
 let abortCtrl: AbortController | null = null
-let streamRaf = 0
+let scrollRaf = 0
+let stickToBottom = true
 
-function scheduleStreamRender() {
-  if (streamRaf) return
-  streamRaf = requestAnimationFrame(async () => {
-    streamRaf = 0
-    messages.value = [...messages.value]
-    await scrollToBottom()
+function isNearBottom(el: HTMLElement, threshold = 120) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+}
+
+function onMessagesScroll() {
+  if (!messagesEl.value) return
+  stickToBottom = isNearBottom(messagesEl.value)
+}
+
+async function scrollToBottom(force = false) {
+  if (!force && !stickToBottom) return
+  await nextTick()
+  bottomEl.value?.scrollIntoView({ behavior: 'auto', block: 'end' })
+}
+
+function scheduleScroll(force = false) {
+  if (scrollRaf) return
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0
+    void scrollToBottom(force || streaming.value)
   })
 }
+
+function patchAssistantMessage(index: number, patch: Partial<ChatMessage>) {
+  const current = messages.value[index]
+  if (!current) return
+  messages.value[index] = { ...current, ...patch }
+}
+
+watch(
+  () => messages.value.length,
+  () => scheduleScroll(true),
+)
 
 function stopGeneration() {
   abortCtrl?.abort()
@@ -111,11 +138,6 @@ function toggleReasoning(index: number) {
   }
 }
 
-async function scrollToBottom() {
-  await nextTick()
-  if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
-}
-
 async function send() {
   const text = input.value.trim()
   if (!text || streaming.value) return
@@ -124,8 +146,11 @@ async function send() {
   input.value = ''
   speech.stop()
 
+  stickToBottom = true
+
   const userMsg: ChatMessage = { role: 'user', content: text }
   messages.value.push(userMsg)
+  await scrollToBottom(true)
 
   let sessionId = activeId.value
   if (!sessionId) {
@@ -151,7 +176,9 @@ async function send() {
     role: 'assistant',
     content: '',
   }
+  const assistantIndex = messages.value.length
   messages.value.push(assistantMsg)
+  await scrollToBottom(true)
 
   streaming.value = true
   abortCtrl = new AbortController()
@@ -166,43 +193,59 @@ async function send() {
     const thinkParser = createThinkStreamParser()
 
     for await (const part of stream) {
+      const current = messages.value[assistantIndex]
+      if (!current || current.role !== 'assistant') break
+
       if (part.type === 'reasoning') {
-        if (!assistantMsg.reasoning) {
-          assistantMsg.reasoning = ''
-          assistantMsg.reasoningOpen = true
-        }
-        assistantMsg.reasoning += part.text
+        patchAssistantMessage(assistantIndex, {
+          reasoning: (current.reasoning ?? '') + part.text,
+          reasoningOpen: true,
+        })
       } else {
         for (const piece of thinkParser.feed(part.text)) {
+          const live = messages.value[assistantIndex]
+          if (!live || live.role !== 'assistant') break
+
           if (piece.type === 'reasoning') {
-            if (!assistantMsg.reasoning) {
-              assistantMsg.reasoning = ''
-              assistantMsg.reasoningOpen = true
-            }
-            assistantMsg.reasoning += piece.text
+            patchAssistantMessage(assistantIndex, {
+              reasoning: (live.reasoning ?? '') + piece.text,
+              reasoningOpen: true,
+            })
           } else {
-            assistantMsg.content += piece.text
+            patchAssistantMessage(assistantIndex, {
+              content: live.content + piece.text,
+            })
           }
         }
       }
-      scheduleStreamRender()
+      scheduleScroll()
     }
 
     for (const piece of thinkParser.flush()) {
+      const live = messages.value[assistantIndex]
+      if (!live || live.role !== 'assistant') break
+
       if (piece.type === 'reasoning') {
-        if (!assistantMsg.reasoning) {
-          assistantMsg.reasoning = ''
-          assistantMsg.reasoningOpen = true
-        }
-        assistantMsg.reasoning += piece.text
+        patchAssistantMessage(assistantIndex, {
+          reasoning: (live.reasoning ?? '') + piece.text,
+          reasoningOpen: true,
+        })
       } else {
-        assistantMsg.content += piece.text
+        patchAssistantMessage(assistantIndex, {
+          content: live.content + piece.text,
+        })
       }
     }
-    scheduleStreamRender()
+    scheduleScroll()
 
-    if (!assistantMsg.reasoning) delete assistantMsg.reasoning
-    else assistantMsg.reasoningOpen = false
+    const finalMsg = messages.value[assistantIndex]
+    if (finalMsg?.role === 'assistant') {
+      if (!finalMsg.reasoning) {
+        patchAssistantMessage(assistantIndex, { reasoning: undefined, reasoningOpen: undefined })
+      } else {
+        patchAssistantMessage(assistantIndex, { reasoningOpen: false })
+      }
+    }
 
     const session = sessions.value.find((s) => s.id === sessionId)
     if (session) {
@@ -215,10 +258,12 @@ async function send() {
     if (e instanceof Error && e.name === 'AbortError') return
     error.value = e instanceof Error ? e.message : 'Error al enviar mensaje'
     messages.value.pop()
-    if (!assistantMsg.content && !assistantMsg.reasoning) messages.value.pop()
+    const failed = messages.value[assistantIndex]
+    if (failed?.role === 'assistant' && !failed.content && !failed.reasoning) messages.value.pop()
   } finally {
     streaming.value = false
     abortCtrl = null
+    await scrollToBottom(true)
   }
 }
 
@@ -364,7 +409,11 @@ onMounted(async () => {
         </span>
       </header>
 
-      <div ref="messagesEl" class="flex-1 overflow-y-auto chat-scroll px-4 sm:px-8 py-6">
+      <div
+        ref="messagesEl"
+        class="flex-1 overflow-y-auto chat-scroll px-4 sm:px-8 py-6"
+        @scroll="onMessagesScroll"
+      >
         <div v-if="!messages.length" class="h-full flex flex-col items-center justify-center text-center px-4">
           <MatuLogo size="lg" class="mb-4 opacity-90" />
           <h2 class="text-lg font-medium text-matu-text mb-2">¿En qué puedo ayudarte?</h2>
@@ -439,6 +488,7 @@ onMounted(async () => {
               </div>
             </div>
           </div>
+          <div ref="bottomEl" class="h-px shrink-0" aria-hidden="true" />
         </div>
       </div>
 

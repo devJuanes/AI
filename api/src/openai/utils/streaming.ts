@@ -27,12 +27,18 @@ export async function streamOllamaChat(options: StreamChatOptions): Promise<void
     throw new Error(errText || `Ollama error ${res.status}`)
   }
 
+  reply.hijack()
   reply.raw.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
   })
+
+  const flush = () => {
+    const raw = reply.raw as NodeJS.WritableStream & { flush?: () => void }
+    raw.flush?.()
+  }
 
   const reader = res.body?.getReader()
   if (!reader) throw new Error('Stream no disponible')
@@ -57,6 +63,7 @@ export async function streamOllamaChat(options: StreamChatOptions): Promise<void
         choices: [{ index: 0, delta, finish_reason: finishReason }],
       })}\n\n`,
     )
+    flush()
   }
 
   while (true) {
@@ -140,12 +147,18 @@ export async function streamOllamaGenerate(options: StreamCompletionOptions): Pr
     throw new Error(errText || `Ollama error ${res.status}`)
   }
 
+  reply.hijack()
   reply.raw.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
   })
+
+  const flush = () => {
+    const raw = reply.raw as NodeJS.WritableStream & { flush?: () => void }
+    raw.flush?.()
+  }
 
   const reader = res.body?.getReader()
   if (!reader) throw new Error('Stream no disponible')
@@ -189,6 +202,7 @@ export async function streamOllamaGenerate(options: StreamCompletionOptions): Pr
               choices: [{ text: data.response, index: 0, logprobs: null, finish_reason: data.done ? 'stop' : null }],
             })}\n\n`,
           )
+          flush()
         }
       } catch {
         // ignore
