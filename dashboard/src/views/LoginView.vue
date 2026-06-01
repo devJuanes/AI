@@ -32,7 +32,7 @@ async function submit() {
           AI
         </div>
         <h1 class="text-2xl font-semibold text-white">Matu AI</h1>
-        <p class="text-slate-400 mt-1">ai.matubyte.com</p>
+        <p class="text-slate-400 mt-1">chat.matubyte.com</p>
       </div>
 
       <form class="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 space-y-5" @submit.prevent="submit">

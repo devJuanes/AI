@@ -32,7 +32,7 @@ const nav = [
           </div>
           <div>
             <p class="font-semibold text-white leading-tight">Matu AI</p>
-            <p class="text-[11px] text-slate-500">ai.matubyte.com</p>
+            <p class="text-[11px] text-slate-500">chat.matubyte.com</p>
           </div>
         </RouterLink>
 

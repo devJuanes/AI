@@ -2,7 +2,7 @@
   "name": "matu-ai",
   "private": true,
   "version": "1.0.0",
-  "description": "Matu AI — API profesional sobre Ollama para ai.matubyte.com",
+  "description": "Matu AI — API OpenAI-compatible (api.matubyte.com) + chat (chat.matubyte.com)",
   "scripts": {
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:dashboard\"",
     "dev:api": "npm run dev --workspace=api",

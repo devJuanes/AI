@@ -56,7 +56,7 @@ export async function requireApiKey(request: FastifyRequest, reply: FastifyReply
     return authError(
       reply,
       request,
-      'Incorrect API key provided. You can find your API key at https://ai.matubyte.com/dashboard.',
+      'Incorrect API key provided. You can find your API key at https://chat.matubyte.com/dashboard.',
     )
   }
 

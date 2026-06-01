@@ -1,160 +1,185 @@
-# Despliegue Matu AI en VPS — ai.matubyte.com
+# Despliegue Matu AI — api.matubyte.com + chat.matubyte.com
 
 ## Arquitectura
 
-| Componente | URL / puerto |
-|------------|----------------|
-| Dashboard Vue | `https://ai.matubyte.com` (Nginx → `dashboard/dist`) |
-| API OpenAI-compatible | `https://ai.matubyte.com/v1/*` (Nginx → PM2 `:3001`) |
-| Auth + API Keys | `https://ai.matubyte.com/api/*` |
-| MatuDB | `https://db.matudb.com` (remoto) |
-| Ollama | `http://127.0.0.1:11434` (mismo servidor o red privada) |
-
-## DNS
-
-Registro **A** en tu proveedor:
+| Componente | URL | Nginx / proceso |
+|------------|-----|-----------------|
+| **Frontend** (docs, login, API keys) | `https://chat.matubyte.com` | Nginx → `/var/www/matu-ai/chat/dist` |
+| **API OpenAI** | `https://api.matubyte.com/v1` | Nginx → PM2 `:3001` |
+| **Auth dashboard** | `https://api.matubyte.com/api` | Mismo backend |
+| **Health** | `https://api.matubyte.com/health` | Mismo backend |
+| **MatuDB** | `https://db.matudb.com` | Remoto |
+| **Ollama** | `http://127.0.0.1:11434` | Local en el VPS |
 
 ```
-ai.matubyte.com  →  IP del VPS
+chat.matubyte.com  ──►  Vue SPA (llama a api.matubyte.com)
+api.matubyte.com   ──►  Fastify API  ──►  Ollama + MatuDB
 ```
 
-## 1. Subir código al servidor
+## DNS (ya configurado)
+
+Registros **A** apuntando a la IP del VPS:
+
+```
+api.matubyte.com   →  IP del servidor
+chat.matubyte.com  →  IP del servidor
+```
+
+---
+
+## 1. Clonar en el servidor
 
 ```bash
 cd ~/apps
-git clone <tu-repo-matu-ai> matu-ai
+git clone https://github.com/devJuanes/AI.git matu-ai
 cd matu-ai
 ```
 
-O sincroniza con `rsync` / SFTP la carpeta `c:\MatuStudio\AI`.
+## 2. Node.js 20+
 
-## 2. Variables de entorno
+```bash
+node -v   # debe ser >= 20
+# Si no: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+#        sudo apt install -y nodejs
+```
+
+## 3. Variables de entorno
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Producción (ejemplo):
+**Producción:**
 
 ```env
 MATUDB_URL=https://db.matudb.com
-MATUDB_PROJECT_ID=ed585252-8f4d-420a-9883-555d37c498f2
+MATUDB_PROJECT_ID=tu-project-id
 MATUDB_SERVICE_KEY=mb_...
 
-JWT_SECRET=<openssl rand -hex 32>
+JWT_SECRET=<genera con: openssl rand -hex 32>
 
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_TIMEOUT_MS=300000
 
 API_PORT=3001
-CORS_ORIGIN=https://ai.matubyte.com
+API_HOST=0.0.0.0
+CORS_ORIGIN=https://chat.matubyte.com
 
-VITE_API_URL=https://ai.matubyte.com
+# El frontend llama a la API en otro subdominio
+VITE_API_URL=https://api.matubyte.com
 ```
 
-## 3. Esquema MatuDB (una vez)
+## 4. Instalar, DB y build
 
 ```bash
 npm ci
-npm run db:setup
-```
-
-## 4. Build
-
-```bash
+npm run db:setup    # solo la primera vez
 npm run build
 ```
 
-El dashboard incrusta `VITE_API_URL`; si cambias `.env`, vuelve a compilar.
+> `VITE_API_URL` se incrusta en el build del dashboard. Si la cambias, vuelve a ejecutar `npm run build`.
 
-## 5. Ollama en el servidor
+## 5. Ollama
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.2
-# o tu modelo preferido
 sudo systemctl enable ollama
 sudo systemctl start ollama
+curl http://127.0.0.1:11434/api/tags
 ```
 
-## 6. PM2
+## 6. PM2 (solo la API)
 
 ```bash
+npm install -g pm2
 pm2 start ecosystem.config.cjs
 pm2 save
-pm2 startup
+pm2 startup   # ejecuta el comando que te muestre
 ```
 
-Comprobar:
+Comprobar API local:
 
 ```bash
-curl https://ai.matubyte.com/health
-curl https://ai.matubyte.com/v1/models -H "Authorization: Bearer mai_live_TU_KEY"
+curl http://127.0.0.1:3001/health
 ```
 
-## 7. Nginx
+## 7. Publicar frontend estático
 
 ```bash
-sudo mkdir -p /var/www/matu-ai/dashboard
-sudo cp -r dashboard/dist /var/www/matu-ai/dashboard/
+sudo mkdir -p /var/www/matu-ai/chat
+sudo cp -r dashboard/dist /var/www/matu-ai/chat/
+sudo chown -R www-data:www-data /var/www/matu-ai
+```
 
-sudo cp deploy/nginx/ai.matubyte.com.conf /etc/nginx/sites-available/ai.matubyte.com
-sudo ln -sf /etc/nginx/sites-available/ai.matubyte.com /etc/nginx/sites-enabled/
+## 8. Nginx
+
+```bash
+sudo cp deploy/nginx/api.matubyte.com.conf /etc/nginx/sites-available/
+sudo cp deploy/nginx/chat.matubyte.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/api.matubyte.com.conf /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/chat.matubyte.com.conf /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-SSL (Let's Encrypt):
+### SSL (Let's Encrypt)
 
 ```bash
-sudo certbot --nginx -d ai.matubyte.com
+sudo certbot --nginx -d api.matubyte.com -d chat.matubyte.com
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-## 8. Usar como OpenAI SDK
+Si certbot pide uno por uno:
+
+```bash
+sudo certbot --nginx -d api.matubyte.com
+sudo certbot --nginx -d chat.matubyte.com
+```
+
+## 9. Verificación final
+
+```bash
+curl https://api.matubyte.com/health
+curl https://api.matubyte.com/v1/models -H "Authorization: Bearer mai_live_TU_KEY"
+```
+
+Abrir en navegador:
+
+- https://chat.matubyte.com/docs — documentación
+- https://chat.matubyte.com/login — crear cuenta / API keys
+
+## 10. SDK OpenAI en tus apps
 
 ```typescript
 import OpenAI from 'openai'
 
 const client = new OpenAI({
-  apiKey: process.env.MATU_AI_KEY, // mai_live_...
-  baseURL: 'https://ai.matubyte.com/v1',
-})
-
-const res = await client.chat.completions.create({
-  model: 'llama3.2',
-  messages: [{ role: 'user', content: 'Hola' }],
+  apiKey: 'mai_live_...',
+  baseURL: 'https://api.matubyte.com/v1',
 })
 ```
 
-Python:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="mai_live_...",
-    base_url="https://ai.matubyte.com/v1",
-)
-```
-
-## Endpoints OpenAI soportados
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/v1` | Info de la API |
-| GET | `/v1/models` | Listar modelos Ollama |
-| GET | `/v1/models/{model}` | Detalle de modelo |
-| POST | `/v1/chat/completions` | Chat (stream + JSON mode) |
-| POST | `/v1/completions` | Completions legacy |
-| POST | `/v1/embeddings` | Embeddings |
+---
 
 ## Actualizar despliegue
 
 ```bash
+cd ~/apps/matu-ai
 git pull
 npm ci
 npm run build
-sudo cp -r dashboard/dist/* /var/www/matu-ai/dashboard/dist/
+sudo cp -r dashboard/dist/* /var/www/matu-ai/chat/dist/
 pm2 restart matu-ai-api
 ```
+
+## Troubleshooting
+
+| Problema | Solución |
+|----------|----------|
+| CORS error desde chat | `CORS_ORIGIN=https://chat.matubyte.com` en `.env` + `pm2 restart` |
+| Frontend llama a localhost | Rebuild con `VITE_API_URL=https://api.matubyte.com` |
+| 502 en api | `pm2 logs matu-ai-api` — revisar `.env` y MatuDB |
+| Ollama down | `systemctl status ollama` + `ollama list` |
+| SSL | `sudo certbot renew --dry-run` |

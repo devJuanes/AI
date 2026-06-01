@@ -1,4 +1,4 @@
--- Matu AI — esquema para MatuDB (proyecto dedicado ai.matubyte.com)
+-- Matu AI — esquema MatuDB (api.matubyte.com + chat.matubyte.com)
 -- Ejecutar con: npm run db:setup --workspace=api
 
 CREATE TABLE IF NOT EXISTS ai_users (

@@ -1,6 +1,7 @@
 # OpenAI-compatible API — Matu AI
 
-Base URL: `https://ai.matubyte.com/v1`
+Base URL: `https://api.matubyte.com/v1`  
+Dashboard y docs: `https://chat.matubyte.com`
 
 Autenticación: header `Authorization: Bearer mai_live_...` (misma convención que OpenAI).
 
@@ -25,59 +26,34 @@ Parámetros soportados (subset OpenAI):
 | `stream` | boolean | SSE compatible OpenAI |
 | `temperature` | number | 0–2 |
 | `top_p` | number | 0–1 |
-| `max_tokens` / `max_completion_tokens` | number | → `num_predict` en Ollama |
+| `max_tokens` / `max_completion_tokens` | number | |
 | `stop` | string \| string[] | |
 | `seed` | number | |
-| `frequency_penalty` | number | aproximado vía `repeat_penalty` |
-| `presence_penalty` | number | aproximado vía `repeat_penalty` |
 | `response_format` | `{ type: "json_object" }` | JSON mode |
-
-No soportado aún: `tools`, `tool_choice`, `n > 1`.
 
 ### POST /v1/completions
 
-Completions legacy (prompt → texto). Compatible con `/api/generate` de Ollama.
+Completions legacy (prompt → texto).
 
 ### POST /v1/embeddings
 
-Embeddings vía Ollama. `encoding_format: base64` no soportado.
+Embeddings vía Ollama.
 
-## Formato de errores
-
-Igual que OpenAI:
-
-```json
-{
-  "error": {
-    "message": "...",
-    "type": "invalid_request_error",
-    "param": "model",
-    "code": "invalid_value"
-  }
-}
-```
-
-## SDK oficial OpenAI
+## SDK OpenAI
 
 ```typescript
 import OpenAI from 'openai'
 
 const openai = new OpenAI({
   apiKey: 'mai_live_...',
-  baseURL: 'https://ai.matubyte.com/v1',
-})
-
-const completion = await openai.chat.completions.create({
-  model: 'llama3.2',
-  messages: [{ role: 'user', content: 'Hola' }],
-  stream: true,
+  baseURL: 'https://api.matubyte.com/v1',
 })
 ```
 
 ## curl
 
 ```bash
-curl https://ai.matubyte.com/v1/chat/completions \
+curl https://api.matubyte.com/v1/chat/completions \
   -H "Authorization: Bearer $MATU_AI_KEY" \
   -H "Content-Type: application/json" \
   -d '{

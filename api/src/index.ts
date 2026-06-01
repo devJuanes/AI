@@ -63,14 +63,15 @@ app.get('/health', async () => {
     openai_compatible: true,
     ollama,
     matudb,
-    docs: 'https://ai.matubyte.com/v1',
+    docs: 'https://chat.matubyte.com/docs',
   }
 })
 
 app.get('/', async () => ({
   name: 'Matu AI API',
-  url: 'https://ai.matubyte.com',
-  openai_base_url: 'https://ai.matubyte.com/v1',
+  url: 'https://api.matubyte.com',
+  openai_base_url: 'https://api.matubyte.com/v1',
+  dashboard: 'https://chat.matubyte.com',
   endpoints: {
     openai: {
       models: 'GET /v1/models',

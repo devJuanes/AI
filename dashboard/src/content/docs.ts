@@ -11,8 +11,8 @@ export type DocBlock =
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'callout'; variant: 'info' | 'warn'; text: string }
 
-export const API_BASE = 'https://ai.matubyte.com/v1'
-export const SITE_URL = 'https://ai.matubyte.com'
+export const API_BASE = 'https://api.matubyte.com/v1'
+export const SITE_URL = 'https://chat.matubyte.com'
 
 export const docSections: DocSection[] = [
   {
@@ -26,7 +26,7 @@ export const docSections: DocSection[] = [
       {
         type: 'callout',
         variant: 'info',
-        text: 'Base URL de producción: https://ai.matubyte.com/v1 — Funciona con el SDK oficial de OpenAI cambiando baseURL y apiKey.',
+        text: 'Base URL de producción: https://api.matubyte.com/v1 — Dashboard y docs en https://chat.matubyte.com',
       },
       {
         type: 'ul',
