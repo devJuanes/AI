@@ -110,7 +110,7 @@ pm2 restart matu-ai-api --update-env
 bash deploy/publish-chat.sh
 ```
 
-Modelo por defecto: `qwen3.5:4b-cloud` (económico en tier free). Límites en [ollama.com/settings](https://ollama.com/settings).
+Modelo por defecto: `qwen3.5:cloud` (Ollama Cloud). Alternativas: `nemotron-3-nano:30b-cloud`, `gemma4:31b-cloud`.
 
 Diagnóstico de lentitud:
 

@@ -2,6 +2,9 @@
 # Diagnóstico Matu AI + Ollama en el VPS
 set -euo pipefail
 
+ROOT="${ROOT:-/root/apps/matu-ai}"
+cd "$ROOT" 2>/dev/null || cd /root/apps/matu-ai 2>/dev/null || true
+
 echo "========== Sistema =========="
 uname -a
 echo "CPU: $(nproc) cores"
@@ -29,12 +32,14 @@ curl -sf http://127.0.0.1:3001/health | python3 -m json.tool 2>/dev/null || curl
 
 echo ""
 echo "========== .env (modelo) =========="
-grep -E '^(DEFAULT_CHAT_MODEL|OLLAMA_|VITE_)' /root/apps/matu-ai/.env 2>/dev/null || true
+grep -E '^(DEFAULT_CHAT_MODEL|OLLAMA_|VITE_)' "$ROOT/.env" 2>/dev/null || grep -E '^(DEFAULT_CHAT_MODEL|OLLAMA_|VITE_)' /root/apps/matu-ai/.env 2>/dev/null || true
 
 echo ""
-echo "========== Test latencia stream (5s max) =========="
-MODEL="${1:-$(grep '^DEFAULT_CHAT_MODEL=' /root/apps/matu-ai/.env 2>/dev/null | cut -d= -f2)}"
-MODEL="${MODEL:-qwen3.5:4b-cloud}"
+echo "========== Test latencia stream (15s max) =========="
+ENV_FILE="${ROOT:-/root/apps/matu-ai}/.env"
+[[ -f .env ]] && ENV_FILE=".env"
+MODEL="${1:-$(grep '^DEFAULT_CHAT_MODEL=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | xargs)}"
+MODEL="${MODEL:-qwen3.5:cloud}"
 echo "Modelo: $MODEL"
 time curl -sf -N -m 15 http://127.0.0.1:11434/api/chat \
   -H 'Content-Type: application/json' \
