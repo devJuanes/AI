@@ -34,6 +34,7 @@ import {
   listModels,
   migrateLegacySessions,
   pickDefaultModel,
+  resolveChatModel,
   syncChatSession,
   streamChatCompletion,
   titleFromMessage,
@@ -46,6 +47,7 @@ const activeId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
 const model = ref('')
+const defaultModel = ref('')
 const models = ref<string[]>([])
 const streaming = ref(false)
 const awaitingFirstToken = ref(false)
@@ -250,7 +252,9 @@ async function openSession(id: string) {
     const merged = { ...session, messages: [...messages.value] }
     if (idx >= 0) sessions.value[idx] = merged
     else sessions.value.unshift(merged)
-    if (session.model) model.value = pickDefaultModel(models.value, session.model)
+    if (session.model) {
+      model.value = resolveChatModel(session.model, models.value, defaultModel.value)
+    }
     closeMobileSidebar()
     pinToBottom()
     await scrollToBottom(true)
@@ -322,9 +326,12 @@ async function send() {
   abortCtrl = new AbortController()
 
   try {
+    const chatModel = resolveChatModel(model.value, models.value, defaultModel.value)
+    if (chatModel !== model.value) model.value = chatModel
+
     const stream = streamChatCompletion(
       messages.value.slice(0, -1).map(({ role, content }) => ({ role, content })),
-      model.value,
+      chatModel,
       abortCtrl.signal,
     )
 
@@ -409,6 +416,7 @@ onMounted(async () => {
       await loadSessionList()
     }
     const preferred = await fetchDefaultModel()
+    defaultModel.value = preferred
     const all = await listModels()
     models.value = filterChatModels(all, preferred)
     model.value = pickDefaultModel(models.value, preferred)

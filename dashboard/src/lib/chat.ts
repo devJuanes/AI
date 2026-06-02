@@ -148,8 +148,25 @@ function modelSizeRank(id: string): number {
   return m ? Number(m[1]) : 99
 }
 
+/** Evita modelos cloud guardados en sesiones viejas cuando el API usa modelo local */
+export function resolveChatModel(
+  selected: string,
+  available: string[],
+  preferred: string,
+): string {
+  if (
+    isCloudModel(selected) &&
+    preferred &&
+    !isCloudModel(preferred) &&
+    available.includes(preferred)
+  ) {
+    return preferred
+  }
+  return pickDefaultModel(available, selected)
+}
+
 export function pickDefaultModel(available: string[], preferred: string): string {
-  const list = filterChatModels(available)
+  const list = filterChatModels(available, preferred)
   if (list.includes(preferred)) return preferred
   const base = preferred.split(':')[0]
   const match = list.find((m) => m === base || m.startsWith(`${base}:`))
@@ -184,7 +201,14 @@ export async function* streamChatCompletion(
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new Error(data?.error?.message ?? `Error ${res.status}`)
+    const msg = data?.error?.message as string | undefined
+    if (res.status === 503 && isCloudModel(model)) {
+      throw new Error(
+        msg ??
+          'El modelo cloud no está disponible. Recarga la página o elige el modelo local en una conversación nueva.',
+      )
+    }
+    throw new Error(msg ?? `Error ${res.status}`)
   }
 
   const reader = res.body?.getReader()

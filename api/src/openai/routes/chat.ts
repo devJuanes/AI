@@ -48,6 +48,17 @@ export async function chatRoutes(app: FastifyInstance) {
     let messages = normalizeChatMessages(body.messages)
     const isDashboard = apiKeyId === DASHBOARD_CHAT_KEY_ID
 
+    // Sesiones antiguas pueden pedir :cloud; si .env usa modelo local, forzar fallback
+    let chatModel = body.model
+    if (
+      isDashboard &&
+      isCloudModel(chatModel) &&
+      config.defaultChatModel &&
+      !isCloudModel(config.defaultChatModel)
+    ) {
+      chatModel = config.defaultChatModel
+    }
+
     if (isDashboard && messages.length > DASHBOARD_MAX_MESSAGES) {
       messages = messages.slice(-DASHBOARD_MAX_MESSAGES)
     }
@@ -68,7 +79,7 @@ export async function chatRoutes(app: FastifyInstance) {
     })
 
     if (isDashboard) {
-      options = applyDashboardOllamaTuning(options, body.model)
+      options = applyDashboardOllamaTuning(options, chatModel)
       if (options.temperature === undefined) options.temperature = 0.55
       if (options.repeat_penalty === undefined) options.repeat_penalty = 1.15
     }
@@ -76,7 +87,7 @@ export async function chatRoutes(app: FastifyInstance) {
     if (isDashboard) {
       messages.unshift({
         role: 'system',
-        content: isCloudModel(body.model)
+        content: isCloudModel(chatModel)
           ? buildMatuSystemPromptCompact(config.appTimezone)
           : buildMatuSystemPrompt(config.appTimezone),
       })
@@ -84,12 +95,12 @@ export async function chatRoutes(app: FastifyInstance) {
 
     const format = pickOllamaFormat(body.response_format)
     const ollamaBody: Record<string, unknown> = {
-      model: body.model,
+      model: chatModel,
       messages: messages.map((m) => ({ role: m.role === 'developer' ? 'system' : m.role, content: m.content })),
       stream: body.stream,
       options,
       ...(format ? { format } : {}),
-      ...(supportsOllamaThinking(body.model) && !isDashboard ? { think: trackUsage } : {}),
+      ...(supportsOllamaThinking(chatModel) && !isDashboard ? { think: trackUsage } : {}),
     }
 
     const promptText = messagesToPrompt(messages)
@@ -101,13 +112,13 @@ export async function chatRoutes(app: FastifyInstance) {
           const completionId = openAIId('chatcmpl')
           await streamOllamaChat({
             reply,
-            model: body.model,
+            model: chatModel,
             completionId,
             ollamaBody,
             promptText,
             endpoint,
             onComplete: async (promptTokens, completionTokens) => {
-              if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
+              if (trackUsage) await logUsage(apiKeyId, chatModel, endpoint, promptTokens, completionTokens)
             },
           })
           return
@@ -139,17 +150,17 @@ export async function chatRoutes(app: FastifyInstance) {
         const promptTokens = data.prompt_eval_count ?? estimateTokens(promptText)
         const completionTokens = data.eval_count ?? estimateTokens(content)
 
-        if (trackUsage) await logUsage(apiKeyId, body.model, endpoint, promptTokens, completionTokens)
+        if (trackUsage) await logUsage(apiKeyId, chatModel, endpoint, promptTokens, completionTokens)
 
         return buildChatCompletionResponse({
-          model: body.model,
+          model: chatModel,
           content,
           promptTokens,
           completionTokens,
         })
       }
 
-      if (isDashboard && !isCloudModel(body.model)) {
+      if (isDashboard && !isCloudModel(chatModel)) {
         return await withDashboardOllamaLock(run)
       }
       return await run()
