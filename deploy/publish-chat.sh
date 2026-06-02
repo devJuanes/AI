@@ -16,7 +16,9 @@ fi
 export VITE_API_URL="${VITE_API_URL:-https://ai.matubyte.com}"
 
 echo "Build dashboard (VITE_API_URL=$VITE_API_URL)..."
-npm run build --workspace=dashboard
+# Vite está en node_modules de la raíz (workspaces); PATH explícito evita "vite: not found"
+export PATH="$ROOT/node_modules/.bin:$PATH"
+(cd "$ROOT/dashboard" && vite build)
 
 echo "Copiando a $TARGET ..."
 mkdir -p "$TARGET"

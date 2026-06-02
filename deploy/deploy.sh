@@ -68,7 +68,8 @@ fi
 
 if [[ $DO_CI -eq 1 ]]; then
   echo "==> npm ci"
-  npm ci
+  # Incluir devDependencies (vite, tsc, etc.) aunque NODE_ENV=production en .env/PM2
+  NODE_ENV=development npm ci
   echo ""
 fi
 
