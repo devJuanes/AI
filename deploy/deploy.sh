@@ -54,6 +54,9 @@ fi
 
 if [[ $DO_PULL -eq 1 ]]; then
   echo "==> git pull"
+  # Descartar scripts locales generados en el VPS (evita conflictos de merge)
+  git checkout -- deploy/fix-env-production.sh deploy/_fix_env_remote.py 2>/dev/null || true
+  rm -f deploy/fix-env-production.sh deploy/_fix_env_remote.py 2>/dev/null || true
   git pull origin main
   echo ""
 fi

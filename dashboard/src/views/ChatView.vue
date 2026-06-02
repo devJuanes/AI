@@ -45,7 +45,7 @@ const sessions = ref<ChatSession[]>([])
 const activeId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
-const model = ref('qwen3.5:cloud')
+const model = ref('')
 const models = ref<string[]>([])
 const streaming = ref(false)
 const awaitingFirstToken = ref(false)
@@ -410,7 +410,7 @@ onMounted(async () => {
     }
     const preferred = await fetchDefaultModel()
     const all = await listModels()
-    models.value = filterChatModels(all)
+    models.value = filterChatModels(all, preferred)
     model.value = pickDefaultModel(models.value, preferred)
   } catch {
     router.push('/login')

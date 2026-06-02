@@ -122,13 +122,21 @@ export async function listModels(): Promise<string[]> {
   return models.map((m) => m.id)
 }
 
-export function filterChatModels(models: string[]): string[] {
+export function filterChatModels(models: string[], preferred?: string): string[] {
+  // Respeta el modelo del API (.env) aunque existan modelos cloud en Ollama
+  if (preferred && models.includes(preferred)) {
+    const others = models.filter((m) => m !== preferred && isCloudModel(m))
+    return [
+      preferred,
+      ...others.sort((a, b) => modelSizeRank(a) - modelSizeRank(b) || a.localeCompare(b)),
+    ]
+  }
+
   const cloud = models.filter(isCloudModel)
   if (cloud.length) {
     return cloud.sort((a, b) => modelSizeRank(a) - modelSizeRank(b) || a.localeCompare(b))
   }
 
-  // Dev / fallback sin cloud: modelos locales pequeños
   const local = models.filter(
     (m) => !/70b|72b|120b|480b/i.test(m) && /1b|3b|4b|8b/i.test(m),
   )
