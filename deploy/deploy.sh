@@ -54,9 +54,14 @@ fi
 
 if [[ $DO_PULL -eq 1 ]]; then
   echo "==> git pull"
-  # Descartar scripts locales generados en el VPS (evita conflictos de merge)
+  # Scripts generados en el VPS (no deben bloquear el pull)
   git checkout -- deploy/fix-env-production.sh deploy/_fix_env_remote.py 2>/dev/null || true
   rm -f deploy/fix-env-production.sh deploy/_fix_env_remote.py 2>/dev/null || true
+  # Edits locales (SFTP, pruebas): el servidor debe seguir origin/main
+  if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null; then
+    echo "    Descartando cambios locales en archivos trackeados…"
+    git reset --hard HEAD
+  fi
   git pull origin main
   echo ""
 fi
