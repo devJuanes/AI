@@ -12,9 +12,6 @@ import {
   KeyRound,
   BookOpen,
   CreditCard,
-  ChevronDown,
-  Mic,
-  Brain,
   Trash2,
 } from '@lucide/vue'
 import MatuLogo from '../components/MatuLogo.vue'
@@ -48,7 +45,7 @@ const sessions = ref<ChatSession[]>([])
 const activeId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
 const input = ref('')
-const model = ref('llama3.2:1b')
+const model = ref('qwen3.5:4b-cloud')
 const models = ref<string[]>([])
 const streaming = ref(false)
 const awaitingFirstToken = ref(false)
@@ -336,21 +333,20 @@ async function send() {
     for await (const part of stream) {
       if (messages.value[assistantIndex]?.role !== 'assistant') break
 
-      if (part.type === 'reasoning') {
-        await appendStreamReasoning(part.text)
-      } else {
-        for (const piece of thinkParser.feed(part.text)) {
-          if (messages.value[assistantIndex]?.role !== 'assistant') break
-          if (piece.type === 'reasoning') await appendStreamReasoning(piece.text)
-          else await appendStreamContent(piece.text)
-        }
+      // Chat web: solo texto visible, sin panel de razonamiento
+      if (part.type === 'reasoning') continue
+
+      for (const piece of thinkParser.feed(part.text)) {
+        if (messages.value[assistantIndex]?.role !== 'assistant') break
+        if (piece.type === 'reasoning') continue
+        await appendStreamContent(piece.text)
       }
     }
 
     for (const piece of thinkParser.flush()) {
       if (messages.value[assistantIndex]?.role !== 'assistant') break
-      if (piece.type === 'reasoning') await appendStreamReasoning(piece.text)
-      else await appendStreamContent(piece.text)
+      if (piece.type === 'reasoning') continue
+      await appendStreamContent(piece.text)
     }
 
     commitStreamDraft()
@@ -594,17 +590,10 @@ onUnmounted(() => {
           <MatuLogo size="sm" :show-text="false" />
           <span class="font-medium text-matu-text truncate">Matu AI</span>
         </div>
-        <select
-          v-if="models.length > 1"
-          v-model="model"
-          :disabled="streaming"
-          class="text-xs sm:text-sm rounded-lg border border-matu-border bg-white px-2 py-1.5 text-matu-muted focus:outline-none focus:border-matu-blue max-w-[120px] sm:max-w-[160px] truncate shrink-0"
-        >
+        <!-- model id interno; en UI solo "Matu AI" -->
+        <select v-model="model" class="sr-only" tabindex="-1" aria-hidden="true">
           <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
         </select>
-        <span v-else-if="models.length === 1" class="text-xs text-matu-muted hidden sm:inline">
-          {{ model }}
-        </span>
       </header>
 
       <div
@@ -635,34 +624,6 @@ onUnmounted(() => {
             </div>
 
             <div class="max-w-[85%] sm:max-w-[85%] space-y-2">
-              <!-- Razonamiento colapsable -->
-              <div
-                v-if="
-                  msg.role === 'assistant' &&
-                  (msg.reasoning || liveReasoningDraft(i))
-                "
-                class="rounded-xl border border-matu-border bg-matu-surface/80 overflow-hidden"
-              >
-                <button
-                  type="button"
-                  class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium text-matu-muted hover:bg-white transition"
-                  @click="toggleReasoning(i)"
-                >
-                  <ChevronDown
-                    class="w-4 h-4 shrink-0 transition-transform"
-                    :class="msg.reasoningOpen !== false ? 'rotate-0' : '-rotate-90'"
-                  />
-                  <Brain class="w-3.5 h-3.5 text-matu-blue" />
-                  <span>Razonamiento</span>
-                </button>
-                <div
-                  v-show="msg.reasoningOpen !== false"
-                  class="px-3 pb-3 text-xs text-matu-muted leading-relaxed whitespace-pre-wrap border-t border-matu-border/60 pt-2 max-h-64 overflow-y-auto chat-scroll"
-                >
-                  {{ msg.reasoning }}{{ liveReasoningDraft(i) }}
-                </div>
-              </div>
-
               <!-- Respuesta -->
               <div
                 v-if="

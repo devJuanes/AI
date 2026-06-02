@@ -17,8 +17,8 @@ export const config = {
   matudbProjectId: process.env.MATUDB_PROJECT_ID ?? '',
   matudbServiceKey: process.env.MATUDB_SERVICE_KEY || process.env.MATUDB_API_KEY || '',
   ollamaTimeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS ?? 300_000),
-  /** Modelo chat web — liviano (~1.3 GB RAM) */
-  defaultChatModel: process.env.DEFAULT_CHAT_MODEL ?? 'llama3.2:1b',
+  /** Modelo chat web — Ollama Cloud (requiere ollama signin en el servidor) */
+  defaultChatModel: process.env.DEFAULT_CHAT_MODEL ?? 'qwen3.5:4b-cloud',
   /** Zona horaria para fecha en el system prompt del chat */
   appTimezone: process.env.APP_TIMEZONE ?? 'America/Bogota',
 }

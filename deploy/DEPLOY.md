@@ -98,14 +98,24 @@ npm run build
 
 > `VITE_API_URL` se incrusta en el build del dashboard. Si la cambias, vuelve a ejecutar `npm run build`.
 
-## 5. Ollama
+## 5. Ollama Cloud (chat web)
 
 ```bash
-curl -fsSL https://ollama.com/install.sh | sh
-sudo systemctl enable ollama
-sudo systemctl start ollama
-ollama pull qwen3:4b
-bash deploy/tune-ollama.sh
+# Una vez en el VPS — cuenta gratuita en ollama.com
+ollama signin
+
+cd ~/apps/matu-ai
+bash deploy/setup-cloud-models.sh
+pm2 restart matu-ai-api --update-env
+bash deploy/publish-chat.sh
+```
+
+Modelo por defecto: `qwen3.5:4b-cloud` (económico en tier free). Límites en [ollama.com/settings](https://ollama.com/settings).
+
+Diagnóstico de lentitud:
+
+```bash
+bash deploy/diagnose-server.sh
 ```
 
 ## 6. PM2 (solo la API)

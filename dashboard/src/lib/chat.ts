@@ -1,6 +1,7 @@
 import { api, getToken } from './api'
 import { getMatuApiOrigin, matuV1 } from './matu-urls'
 import { DEFAULT_MODEL } from './constants'
+import { isCloudModel } from './model-display'
 
 const API_URL = getMatuApiOrigin()
 
@@ -122,20 +123,21 @@ export async function listModels(): Promise<string[]> {
 }
 
 export function filterChatModels(models: string[]): string[] {
-  const blocked = /qwen|deepseek|qwq|r1:|:cloud|\b70b\b|\b72b\b/i
-  let filtered = models.filter((m) => !blocked.test(m))
-
-  if (filtered.includes('llama3.2:1b')) {
-    filtered = filtered.filter((m) => m !== 'llama3.2:latest' && m !== 'llama3.2')
+  const cloud = models.filter(isCloudModel)
+  if (cloud.length) {
+    return cloud.sort((a, b) => modelSizeRank(a) - modelSizeRank(b) || a.localeCompare(b))
   }
 
-  filtered.sort((a, b) => {
-    if (a.includes('1b')) return -1
-    if (b.includes('1b')) return 1
-    return a.localeCompare(b)
-  })
+  // Dev / fallback sin cloud: modelos locales pequeños
+  const local = models.filter(
+    (m) => !/70b|72b|120b|480b/i.test(m) && /1b|3b|4b|8b/i.test(m),
+  )
+  return local.length ? local : models.slice(0, 1)
+}
 
-  return filtered.length ? filtered : ['llama3.2:1b']
+function modelSizeRank(id: string): number {
+  const m = id.match(/(\d+)b/i)
+  return m ? Number(m[1]) : 99
 }
 
 export function pickDefaultModel(available: string[], preferred: string): string {
@@ -144,7 +146,7 @@ export function pickDefaultModel(available: string[], preferred: string): string
   const base = preferred.split(':')[0]
   const match = list.find((m) => m === base || m.startsWith(`${base}:`))
   if (match) return match
-  const tiny = list.find((m) => m.includes('1b'))
+  const tiny = list.find((m) => /4b|8b|1b|3b/i.test(m))
   return tiny ?? list[0] ?? preferred
 }
 
@@ -167,7 +169,7 @@ export async function* streamChatCompletion(
       model,
       messages: messages.map(({ role, content }) => ({ role, content })),
       stream: true,
-      max_tokens: 1024,
+      max_tokens: 768,
       temperature: 0.55,
     }),
   })

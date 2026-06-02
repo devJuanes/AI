@@ -135,7 +135,7 @@ onMounted(load)
     <div class="px-6 py-4 border-b border-matu-border flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-matu-text">Facturación</h1>
-        <p class="text-xs text-matu-muted mt-0.5">Pay as you go · modelo {{ billing?.pricing.model ?? 'llama3.2:1b' }}</p>
+        <p class="text-xs text-matu-muted mt-0.5">Pay as you go · Matu AI</p>
       </div>
       <div v-if="billing" class="text-right">
         <p class="text-xs text-matu-muted">Saldo actual</p>
@@ -180,7 +180,7 @@ onMounted(load)
               (~{{ formatTokens(billing.pricing.examples.per5Usd) }} tokens por $5).
             </p>
             <p class="text-xs text-matu-muted mt-2">
-              Precio orientado a modelo básico {{ billing.pricing.model }}. Recarga mínima
+              Precio API Matu AI. Recarga mínima
               {{ formatUsd(billing.pricing.minRechargeUsd) }}.
             </p>
           </section>

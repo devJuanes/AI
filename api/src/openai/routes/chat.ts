@@ -12,8 +12,9 @@ import { normalizeChatMessages, messagesToPrompt } from '../utils/messages.js'
 import { applyDashboardOllamaTuning, pickOllamaFormat, toOllamaOptions } from '../utils/ollama-options.js'
 import { openAIId } from '../utils/ids.js'
 import { streamOllamaChat } from '../utils/streaming.js'
-import { buildMatuSystemPrompt } from '../utils/matu-prompt.js'
+import { buildMatuSystemPrompt, buildMatuSystemPromptCompact } from '../utils/matu-prompt.js'
 import { supportsOllamaThinking } from '../utils/thinking.js'
+import { isCloudModel } from '../utils/cloud-models.js'
 import { withDashboardOllamaLock } from '../../services/ollama-queue.js'
 import { config } from '../../config.js'
 
@@ -67,7 +68,7 @@ export async function chatRoutes(app: FastifyInstance) {
     })
 
     if (isDashboard) {
-      options = applyDashboardOllamaTuning(options)
+      options = applyDashboardOllamaTuning(options, body.model)
       if (options.temperature === undefined) options.temperature = 0.55
       if (options.repeat_penalty === undefined) options.repeat_penalty = 1.15
     }
@@ -75,7 +76,9 @@ export async function chatRoutes(app: FastifyInstance) {
     if (isDashboard) {
       messages.unshift({
         role: 'system',
-        content: buildMatuSystemPrompt(config.appTimezone),
+        content: isCloudModel(body.model)
+          ? buildMatuSystemPromptCompact(config.appTimezone)
+          : buildMatuSystemPrompt(config.appTimezone),
       })
     }
 
@@ -86,7 +89,7 @@ export async function chatRoutes(app: FastifyInstance) {
       stream: body.stream,
       options,
       ...(format ? { format } : {}),
-      ...(supportsOllamaThinking(body.model) ? { think: !isDashboard && trackUsage } : {}),
+      ...(supportsOllamaThinking(body.model) && !isDashboard ? { think: trackUsage } : {}),
     }
 
     const promptText = messagesToPrompt(messages)
@@ -146,7 +149,7 @@ export async function chatRoutes(app: FastifyInstance) {
         })
       }
 
-      if (isDashboard) {
+      if (isDashboard && !isCloudModel(body.model)) {
         return await withDashboardOllamaLock(run)
       }
       return await run()
