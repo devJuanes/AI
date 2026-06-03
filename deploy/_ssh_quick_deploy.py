@@ -25,8 +25,9 @@ def main():
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     c.connect(HOST, username="root", password=PWD, timeout=30)
     run(c, f"cd {APP} && git reset --hard HEAD && git pull origin main")
+    run(c, f"cd {APP} && bash deploy/tune-ollama.sh")
     run(c, f"cd {APP} && bash deploy/fix-env-model.sh llama3.2:1b")
-    run(c, f"cd {APP} && bash deploy.sh --no-pull")
+    run(c, f"cd {APP} && bash deploy.sh --no-pull", timeout=600)
     c.close()
     return 0
 
