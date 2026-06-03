@@ -105,6 +105,10 @@ await app.register(openaiRoutes)
 try {
   await app.listen({ port: config.port, host: config.host })
   app.log.info(`Matu AI API → http://${config.host}:${config.port}/v1`)
+  const { warmupOllamaModel } = await import('./services/ollama-warmup.js')
+  warmupOllamaModel()
+    .then(() => app.log.info(`Ollama warmup OK (${config.defaultChatModel})`))
+    .catch((err) => app.log.warn({ err }, 'Ollama warmup skipped'))
 } catch (err) {
   app.log.error(err)
   process.exit(1)

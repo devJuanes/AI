@@ -24,7 +24,7 @@ cat > "$DROPIN" <<EOF
 [Service]
 Environment="OLLAMA_NUM_PARALLEL=$PARALLEL"
 Environment="OLLAMA_MAX_LOADED_MODELS=1"
-Environment="OLLAMA_KEEP_ALIVE=15m"
+Environment="OLLAMA_KEEP_ALIVE=30m"
 Environment="OLLAMA_MAX_QUEUE=4"
 EOF
 

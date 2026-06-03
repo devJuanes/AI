@@ -1,7 +1,25 @@
 import { api, getToken } from './api'
 import { getMatuApiOrigin, matuV1 } from './matu-urls'
 import { DEFAULT_MODEL } from './constants'
-import { isCloudModel } from './model-display'
+import { getCloudModels, getLocalModels, isCloudModel } from './model-display'
+
+const USE_CLOUD_KEY = 'matu_ai_use_cloud'
+
+export function loadUseCloud(): boolean {
+  try {
+    return localStorage.getItem(USE_CLOUD_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function saveUseCloud(value: boolean) {
+  try {
+    localStorage.setItem(USE_CLOUD_KEY, value ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
 
 const API_URL = getMatuApiOrigin()
 
@@ -148,19 +166,31 @@ function modelSizeRank(id: string): number {
   return m ? Number(m[1]) : 99
 }
 
-/** Evita modelos cloud guardados en sesiones viejas cuando el API usa modelo local */
+export function pickCloudModel(available: string[], preferred?: string): string | null {
+  const clouds = getCloudModels(available)
+  if (!clouds.length) return null
+  if (preferred && clouds.includes(preferred)) return preferred
+  return clouds[0] ?? null
+}
+
+export function pickLocalModel(available: string[], preferred: string): string {
+  const locals = getLocalModels(available)
+  const pool = locals.length ? locals : available
+  return pickDefaultModel(pool, preferred)
+}
+
+/** Respeta el switch Local/Cloud y sesiones guardadas */
 export function resolveChatModel(
   selected: string,
   available: string[],
   preferred: string,
+  useCloud: boolean,
 ): string {
-  if (
-    isCloudModel(selected) &&
-    preferred &&
-    !isCloudModel(preferred) &&
-    available.includes(preferred)
-  ) {
-    return preferred
+  if (useCloud) {
+    return pickCloudModel(available, isCloudModel(selected) ? selected : undefined) ?? pickLocalModel(available, preferred)
+  }
+  if (isCloudModel(selected)) {
+    return pickLocalModel(available, preferred)
   }
   return pickDefaultModel(available, selected)
 }
@@ -194,7 +224,7 @@ export async function* streamChatCompletion(
       model,
       messages: messages.map(({ role, content }) => ({ role, content })),
       stream: true,
-      max_tokens: 768,
+      max_tokens: 512,
       temperature: 0.55,
     }),
   })

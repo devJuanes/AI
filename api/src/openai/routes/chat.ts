@@ -12,14 +12,14 @@ import { normalizeChatMessages, messagesToPrompt } from '../utils/messages.js'
 import { applyDashboardOllamaTuning, pickOllamaFormat, toOllamaOptions } from '../utils/ollama-options.js'
 import { openAIId } from '../utils/ids.js'
 import { streamOllamaChat } from '../utils/streaming.js'
-import { buildMatuSystemPrompt, buildMatuSystemPromptCompact } from '../utils/matu-prompt.js'
+import { buildMatuSystemPromptCompact } from '../utils/matu-prompt.js'
 import { supportsOllamaThinking } from '../utils/thinking.js'
 import { isCloudModel } from '../utils/cloud-models.js'
 import { withDashboardOllamaLock } from '../../services/ollama-queue.js'
 import { config } from '../../config.js'
 
 const DASHBOARD_MAX_MESSAGES = 20
-const DASHBOARD_DEFAULT_MAX_TOKENS = 1024
+const DASHBOARD_DEFAULT_MAX_TOKENS = 512
 
 export async function chatRoutes(app: FastifyInstance) {
   app.post('/v1/chat/completions', async (request, reply) => {
@@ -48,16 +48,7 @@ export async function chatRoutes(app: FastifyInstance) {
     let messages = normalizeChatMessages(body.messages)
     const isDashboard = apiKeyId === DASHBOARD_CHAT_KEY_ID
 
-    // Sesiones antiguas pueden pedir :cloud; si .env usa modelo local, forzar fallback
-    let chatModel = body.model
-    if (
-      isDashboard &&
-      isCloudModel(chatModel) &&
-      config.defaultChatModel &&
-      !isCloudModel(config.defaultChatModel)
-    ) {
-      chatModel = config.defaultChatModel
-    }
+    const chatModel = body.model
 
     if (isDashboard && messages.length > DASHBOARD_MAX_MESSAGES) {
       messages = messages.slice(-DASHBOARD_MAX_MESSAGES)
@@ -87,9 +78,7 @@ export async function chatRoutes(app: FastifyInstance) {
     if (isDashboard) {
       messages.unshift({
         role: 'system',
-        content: isCloudModel(chatModel)
-          ? buildMatuSystemPromptCompact(config.appTimezone)
-          : buildMatuSystemPrompt(config.appTimezone),
+        content: buildMatuSystemPromptCompact(config.appTimezone),
       })
     }
 

@@ -32,13 +32,20 @@ import {
   fetchDefaultModel,
   filterChatModels,
   listModels,
+  loadUseCloud,
   migrateLegacySessions,
-  pickDefaultModel,
   resolveChatModel,
+  saveUseCloud,
   syncChatSession,
   streamChatCompletion,
   titleFromMessage,
 } from '../lib/chat'
+import {
+  CLOUD_MODE_HINT,
+  getCloudModels,
+  isCloudModel,
+  LOCAL_MODE_HINT,
+} from '../lib/model-display'
 
 const router = useRouter()
 const user = ref<User | null>(null)
@@ -49,6 +56,25 @@ const input = ref('')
 const model = ref('')
 const defaultModel = ref('')
 const models = ref<string[]>([])
+const useCloud = ref(loadUseCloud())
+const cloudOptions = computed(() => getCloudModels(models.value))
+const hasCloud = computed(() => cloudOptions.value.length > 0)
+const modeHint = computed(() => (useCloud.value ? CLOUD_MODE_HINT : LOCAL_MODE_HINT))
+
+function syncModelFromMode() {
+  if (useCloud.value && !hasCloud.value) {
+    useCloud.value = false
+  }
+  model.value = resolveChatModel(
+    model.value,
+    models.value,
+    defaultModel.value,
+    useCloud.value,
+  )
+  saveUseCloud(useCloud.value)
+}
+
+watch(useCloud, () => syncModelFromMode())
 const streaming = ref(false)
 const awaitingFirstToken = ref(false)
 const error = ref('')
@@ -253,7 +279,14 @@ async function openSession(id: string) {
     if (idx >= 0) sessions.value[idx] = merged
     else sessions.value.unshift(merged)
     if (session.model) {
-      model.value = resolveChatModel(session.model, models.value, defaultModel.value)
+      if (isCloudModel(session.model)) useCloud.value = true
+      model.value = resolveChatModel(
+        session.model,
+        models.value,
+        defaultModel.value,
+        useCloud.value,
+      )
+      saveUseCloud(useCloud.value)
     }
     closeMobileSidebar()
     pinToBottom()
@@ -326,7 +359,12 @@ async function send() {
   abortCtrl = new AbortController()
 
   try {
-    const chatModel = resolveChatModel(model.value, models.value, defaultModel.value)
+    const chatModel = resolveChatModel(
+      model.value,
+      models.value,
+      defaultModel.value,
+      useCloud.value,
+    )
     if (chatModel !== model.value) model.value = chatModel
 
     const stream = streamChatCompletion(
@@ -419,7 +457,11 @@ onMounted(async () => {
     defaultModel.value = preferred
     const all = await listModels()
     models.value = filterChatModels(all, preferred)
-    model.value = pickDefaultModel(models.value, preferred)
+    if (useCloud.value && !getCloudModels(all).length) {
+      useCloud.value = false
+      saveUseCloud(false)
+    }
+    syncModelFromMode()
   } catch {
     router.push('/login')
   }
@@ -598,11 +640,50 @@ onUnmounted(() => {
           <MatuLogo size="sm" :show-text="false" />
           <span class="font-medium text-matu-text truncate">Matu AI</span>
         </div>
-        <!-- model id interno; en UI solo "Matu AI" -->
-        <select v-model="model" class="sr-only" tabindex="-1" aria-hidden="true">
-          <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
+        <div
+          class="flex items-center gap-1.5 sm:gap-2 shrink-0"
+          :title="modeHint"
+        >
+          <span
+            class="text-[10px] sm:text-xs font-medium hidden sm:inline"
+            :class="useCloud ? 'text-matu-muted' : 'text-matu-blue'"
+          >Local</span>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="useCloud"
+            :aria-label="useCloud ? 'Modo Cloud activo' : 'Modo local activo'"
+            :disabled="!hasCloud && !useCloud"
+            class="relative w-11 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-matu-blue/40 disabled:opacity-40"
+            :class="useCloud ? 'bg-matu-blue' : 'bg-matu-border'"
+            @click="useCloud = !useCloud"
+          >
+            <span
+              class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
+              :class="useCloud ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+          <span
+            class="text-[10px] sm:text-xs font-medium"
+            :class="useCloud ? 'text-matu-blue' : 'text-matu-muted'"
+          >Cloud</span>
+        </div>
+        <select
+          v-if="useCloud && cloudOptions.length > 1"
+          v-model="model"
+          class="sr-only sm:not-sr-only sm:text-xs sm:border sm:border-matu-border sm:rounded-lg sm:px-2 sm:py-1 sm:max-w-[8rem] sm:truncate"
+          title="Modelo cloud"
+        >
+          <option v-for="m in cloudOptions" :key="m" :value="m">Cloud</option>
         </select>
       </header>
+      <p
+        v-if="useCloud || !hasCloud"
+        class="text-center text-[10px] sm:text-xs text-matu-muted px-4 py-1 border-b border-matu-border/60 shrink-0"
+      >
+        <template v-if="!hasCloud">Cloud no disponible en el servidor — usa modo Local.</template>
+        <template v-else>{{ modeHint }}</template>
+      </p>
 
       <div
         ref="messagesEl"
