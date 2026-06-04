@@ -157,7 +157,13 @@ export async function billingRoutes(app: FastifyInstance) {
         message.includes('BOLD_') ||
         message.includes('callback') ||
         message.includes('ngrok')
-      return reply.code(isAuth ? 401 : isBold ? 502 : 500).send({
+      const isPaymatu =
+        message.includes('PayMatuByte') ||
+        message.includes('MatuDB') ||
+        message.includes('paymatu') ||
+        message.includes('column') ||
+        message.includes('environment')
+      return reply.code(isAuth ? 401 : isBold || isPaymatu ? 502 : 500).send({
         error: {
           message,
           type: isAuth ? 'paymatu_unauthorized' : 'billing_error',
