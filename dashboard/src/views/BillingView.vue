@@ -114,9 +114,14 @@ async function startRecharge() {
     pendingTx.value = res.transaction
     payMessage.value = res.message
 
+    if (res.checkoutUrl) {
+      window.location.href = res.checkoutUrl
+      return
+    }
+
     if (res.mockCheckout && res.transaction.id) {
       await api.completeRechargeDemo(res.transaction.id)
-      payMessage.value = 'Recarga acreditada (demo). Cuando integremos la pasarela, aquí irás a pagar.'
+      payMessage.value = 'Recarga acreditada (demo). Sin pasarela Bold.'
       pendingTx.value = null
       await load()
     }
@@ -257,7 +262,13 @@ onMounted(load)
             class="rounded-md bg-neutral-900 hover:bg-neutral-800 disabled:opacity-40 text-white text-sm font-medium px-5 py-2.5"
             @click="startRecharge"
           >
-            {{ paying ? 'Procesando…' : billing.mockCheckout ? 'Recargar (demo)' : 'Ir a pagar' }}
+            {{
+              paying
+                ? 'Procesando…'
+                : billing.mockCheckout
+                  ? 'Recargar (demo)'
+                  : 'Ir a pagar con Bold'
+            }}
           </button>
 
           <p v-if="payMessage" class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3">

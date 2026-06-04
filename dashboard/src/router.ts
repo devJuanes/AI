@@ -52,6 +52,10 @@ const router = createRouter({
           path: 'billing',
           component: () => import('./views/BillingView.vue'),
         },
+        {
+          path: 'billing/pago-resultado',
+          component: () => import('./views/BillingPaymentResultView.vue'),
+        },
       ],
     },
     {

@@ -75,6 +75,7 @@ export interface BillingResponse {
   pricing: UsageResponse['pricing']
   wallet: { balanceUsd: number; balanceCop: number }
   mockCheckout: boolean
+  paymatuEnabled?: boolean
   transactions: WalletTransaction[]
 }
 
@@ -177,4 +178,15 @@ export const api = {
       `/api/billing/recharge/${id}/complete-demo`,
       { method: 'POST' },
     ),
+
+  confirmPaymentReturn: (reference: string) =>
+    request<{
+      ok: boolean
+      paid: boolean
+      reference: string
+      wallet: { balanceUsd: number; balanceCop: number }
+    }>('/api/billing/confirm-return', {
+      method: 'POST',
+      body: JSON.stringify({ reference }),
+    }),
 }

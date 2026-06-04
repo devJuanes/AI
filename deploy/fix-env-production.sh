@@ -23,6 +23,9 @@ for line in lines:
 fixes = {
     "CORS_ORIGIN": "https://chat.matubyte.com",
     "VITE_API_URL": "https://ai.matubyte.com",
+    "PAYMATUBYTE_URL": "https://pay.matubyte.com",
+    "PAYMATUBYTE_APP_ID": "matu-ai",
+    "BILLING_MOCK_CHECKOUT": "false",
     "DEFAULT_CHAT_MODEL": vals.get("DEFAULT_CHAT_MODEL", "qwen3.5:cloud"),
     "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
     "OLLAMA_TIMEOUT_MS": "300000",
@@ -39,6 +42,7 @@ order = [
     "OLLAMA_BASE_URL", "OLLAMA_TIMEOUT_MS", "DEFAULT_CHAT_MODEL", "APP_TIMEZONE",
     "API_PORT", "API_HOST", "CORS_ORIGIN", "VITE_API_URL",
     "BILLING_MIN_RECHARGE_USD", "BILLING_TOKENS_PER_USD", "BILLING_USD_COP_RATE", "BILLING_MOCK_CHECKOUT",
+    "PAYMATUBYTE_URL", "PAYMATUBYTE_API_KEY", "PAYMATUBYTE_APP_ID",
 ]
 out = ["# Matu AI — producción (generado por fix-env-production.sh)"]
 for k in order:

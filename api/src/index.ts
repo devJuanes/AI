@@ -1,4 +1,5 @@
 import './load-env.js'
+import { isPayMatuConfigured } from './services/paymatubyte.js'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
@@ -105,6 +106,11 @@ await app.register(openaiRoutes)
 try {
   await app.listen({ port: config.port, host: config.host })
   app.log.info(`Matu AI API → http://${config.host}:${config.port}/v1`)
+  app.log.info(
+    isPayMatuConfigured()
+      ? 'PayMatuByte: configurado (pasarela Bold activa)'
+      : 'PayMatuByte: NO configurado — revisa PAYMATUBYTE_* en AI/.env y reinicia npm run dev',
+  )
   const { warmupOllamaModel } = await import('./services/ollama-warmup.js')
   warmupOllamaModel()
     .then(() => app.log.info(`Ollama warmup OK (${config.defaultChatModel})`))

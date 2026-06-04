@@ -21,4 +21,12 @@ export const config = {
   defaultChatModel: process.env.DEFAULT_CHAT_MODEL ?? 'llama3.2:1b',
   /** Zona horaria para fecha en el system prompt del chat */
   appTimezone: process.env.APP_TIMEZONE ?? 'America/Bogota',
+
+  /** PayMatuByte — pasarela Bold central MatuByte */
+  paymatubyteUrl: (
+    process.env.PAYMATUBYTE_URL ??
+    (process.env.NODE_ENV === 'production' ? 'https://pay.matubyte.com' : 'http://localhost:3000')
+  ).replace(/\/$/, ''),
+  paymatubyteApiKey: process.env.PAYMATUBYTE_API_KEY ?? '',
+  paymatubyteAppId: process.env.PAYMATUBYTE_APP_ID ?? 'matu-ai',
 }

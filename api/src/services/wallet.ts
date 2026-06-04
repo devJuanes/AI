@@ -157,5 +157,38 @@ export async function completeRecharge(transactionId: string, userId: string) {
   return next
 }
 
-export const billingMockCheckout =
-  process.env.BILLING_MOCK_CHECKOUT === 'true' || process.env.NODE_ENV !== 'production'
+/** Solo true si quieres acreditar sin Bold (pruebas de saldo). */
+export const billingMockCheckout = process.env.BILLING_MOCK_CHECKOUT === 'true'
+
+export async function completeRechargeByPaymentRef(paymentRef: string, userId: string) {
+  const db = getDb()
+  const { data: tx } = await db
+    .from('ai_wallet_transactions')
+    .select('id, user_id, type, status')
+    .eq('payment_ref', paymentRef)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!tx) throw new Error('Transacción no encontrada')
+  const row = tx as Pick<TransactionRow, 'id' | 'user_id' | 'type' | 'status'>
+  if (row.type !== 'recharge') throw new Error('Transacción inválida')
+
+  return completeRecharge(row.id, userId)
+}
+
+export async function failRechargeByPaymentRef(paymentRef: string, userId: string) {
+  const db = getDb()
+  const { data: tx } = await db
+    .from('ai_wallet_transactions')
+    .select('id, status')
+    .eq('payment_ref', paymentRef)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!tx || (tx as TransactionRow).status !== 'pending') return
+
+  await matuUpdate(db, 'ai_wallet_transactions', { id: (tx as TransactionRow).id, user_id: userId }, {
+    status: 'failed',
+    description: 'Pago no completado',
+  })
+}

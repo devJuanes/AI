@@ -13,6 +13,7 @@ import {
   BookOpen,
   CreditCard,
   Trash2,
+  Mic,
 } from '@lucide/vue'
 import MatuLogo from '../components/MatuLogo.vue'
 import TypingIndicator from '../components/TypingIndicator.vue'
