@@ -7,10 +7,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 # Tags cloud reales en ollama.com (no existe qwen3.5:4b-cloud)
+# qwen3.5:cloud requiere plan Pro; priorizar modelos Free
 CLOUD_CANDIDATES=(
-  "${MATU_CLOUD_MODEL:-qwen3.5:cloud}"
+  "${MATU_CLOUD_MODEL:-gpt-oss:20b-cloud}"
   "nemotron-3-nano:30b-cloud"
   "gemma4:31b-cloud"
+  "qwen3.5:cloud"
 )
 LOCAL_FALLBACK="${MATU_LOCAL_MODEL:-llama3.2:1b}"
 

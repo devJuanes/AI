@@ -63,11 +63,10 @@ app.get('/health', async () => {
   } catch {
     matudb = 'not_configured'
   }
-  const { isOllamaCloudSignedIn } = await import('./services/ollama-cloud.js')
-  const hasCloudModels = ollama === 'ok'
+  const { probeOllamaCloudAuth } = await import('./services/ollama-cloud.js')
   let ollama_cloud: 'ok' | 'needs_signin' | 'unavailable' = 'unavailable'
-  if (hasCloudModels) {
-    ollama_cloud = isOllamaCloudSignedIn() ? 'ok' : 'needs_signin'
+  if (ollama === 'ok') {
+    ollama_cloud = await probeOllamaCloudAuth()
   }
 
   return {

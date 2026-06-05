@@ -1,7 +1,12 @@
 import { api, getToken } from './api'
 import { getMatuApiOrigin, matuV1 } from './matu-urls'
 import { DEFAULT_MODEL } from './constants'
-import { getCloudModels, getLocalModels, isCloudModel } from './model-display'
+import {
+  getCloudModels,
+  getLocalModels,
+  isCloudModel,
+  pickFreeCloudModel,
+} from './model-display'
 
 const USE_CLOUD_KEY = 'matu_ai_use_cloud'
 
@@ -182,10 +187,7 @@ function modelSizeRank(id: string): number {
 }
 
 export function pickCloudModel(available: string[], preferred?: string): string | null {
-  const clouds = getCloudModels(available)
-  if (!clouds.length) return null
-  if (preferred && clouds.includes(preferred)) return preferred
-  return clouds[0] ?? null
+  return pickFreeCloudModel(available, preferred)
 }
 
 export function pickLocalModel(available: string[], preferred: string): string {

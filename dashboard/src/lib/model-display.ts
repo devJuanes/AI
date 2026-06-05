@@ -2,7 +2,7 @@
 export const MATU_AI_PUBLIC_NAME = 'Matu AI'
 
 export const CLOUD_MODE_HINT =
-  'Ollama Cloud (plan Free): cuota por tiempo GPU, no tokens fijos. 1 modelo cloud a la vez; límites de sesión (cada 5 h) y semanal (cada 7 días). Revisa uso en ollama.com/settings'
+  'Ollama Cloud Free: gpt-oss / nemotron / gemma4. Cuota GPU (sesión 5 h, semanal 7 días). qwen3.5:cloud requiere Pro.'
 
 export const LOCAL_MODE_HINT =
   'Modelo local en el VPS (llama3.2:1b): sin cuota Ollama Cloud; más rápido para chat diario.'
