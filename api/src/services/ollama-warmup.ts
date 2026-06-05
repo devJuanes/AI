@@ -16,7 +16,7 @@ export async function warmupOllamaModel(model = config.defaultChatModel): Promis
       model,
       messages: [{ role: 'user', content: 'ok' }],
       stream: false,
-      options: { num_predict: 1, num_ctx: 1024, num_thread: 8 },
+      options: { num_predict: 1, num_ctx: 1024, num_thread: 16 },
     }),
   })
   if (!res.ok) {

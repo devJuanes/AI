@@ -37,13 +37,22 @@ export async function ollamaFetch(path: string, init?: RequestInit): Promise<Res
   }
 }
 
-export async function listOllamaModels(): Promise<OllamaModel[]> {
+let modelsCache: { at: number; models: OllamaModel[] } | null = null
+const MODELS_CACHE_MS = 30_000
+
+export async function listOllamaModels(force = false): Promise<OllamaModel[]> {
+  const now = Date.now()
+  if (!force && modelsCache && now - modelsCache.at < MODELS_CACHE_MS) {
+    return modelsCache.models
+  }
   const res = await ollamaFetch('/api/tags')
   if (!res.ok) {
     throw new Error(`Ollama no disponible (${res.status})`)
   }
   const data = (await res.json()) as { models?: OllamaModel[] }
-  return data.models ?? []
+  const models = data.models ?? []
+  modelsCache = { at: now, models }
+  return models
 }
 
 export async function getOllamaModel(modelId: string): Promise<OllamaModel & { modelfile?: string }> {

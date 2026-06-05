@@ -92,6 +92,12 @@ fi
 pm2 save
 echo ""
 
+if [[ $DO_OLLAMA -eq 0 ]]; then
+  echo "==> Precarga modelo local (matu-nano)"
+  bash "$ROOT/deploy/preload-default-model.sh" llama3.2:1b 2>/dev/null || true
+  echo ""
+fi
+
 echo "==> Build y publicar frontend"
 bash "$ROOT/deploy/publish-chat.sh"
 echo ""

@@ -366,8 +366,7 @@ async function send() {
       if (session.title === 'Nueva conversación') session.title = titleFromMessage(text)
     }
   }
-  await persistSession(sessionId)
-
+  // No guardar en DB antes del stream — evita 5–30 s de espera (MatuDB + cola)
   const assistantMsg = createChatMessage('assistant')
   const assistantIndex = messages.value.length
   resetStreamDraft(assistantIndex)
