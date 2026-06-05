@@ -46,6 +46,7 @@ import {
   getCloudModels,
   isCloudModel,
   LOCAL_MODE_HINT,
+  MATU_CHAT_LIMITS,
 } from '../lib/model-display'
 
 const router = useRouter()
@@ -683,7 +684,16 @@ onUnmounted(() => {
         class="text-center text-[10px] sm:text-xs text-matu-muted px-4 py-1 border-b border-matu-border/60 shrink-0"
       >
         <template v-if="!hasCloud">Cloud no disponible en el servidor — usa modo Local.</template>
-        <template v-else>{{ modeHint }}</template>
+        <template v-else-if="useCloud">
+          {{ modeHint }} · Máx. {{ MATU_CHAT_LIMITS.maxTokensPerReply }} tokens/respuesta,
+          {{ MATU_CHAT_LIMITS.maxMessagesInContext }} mensajes de contexto.
+          <a
+            href="https://ollama.com/settings"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-matu-blue hover:underline"
+          >Ver cuota Ollama</a>
+        </template>
       </p>
 
       <div

@@ -5,11 +5,14 @@ import { getCloudModels, getLocalModels, isCloudModel } from './model-display'
 
 const USE_CLOUD_KEY = 'matu_ai_use_cloud'
 
+/** Por defecto Cloud; solo Local si el usuario lo eligió antes (localStorage = '0') */
 export function loadUseCloud(): boolean {
   try {
-    return localStorage.getItem(USE_CLOUD_KEY) === '1'
+    const v = localStorage.getItem(USE_CLOUD_KEY)
+    if (v === null) return true
+    return v === '1'
   } catch {
-    return false
+    return true
   }
 }
 
