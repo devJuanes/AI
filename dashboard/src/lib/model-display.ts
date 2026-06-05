@@ -32,3 +32,30 @@ export function getCloudModels(models: string[]): string[] {
 export function getLocalModels(models: string[]): string[] {
   return models.filter((m) => !isCloudModel(m))
 }
+
+export const FREE_CLOUD_MODEL_ORDER = [
+  'gpt-oss:20b-cloud',
+  'nemotron-3-nano:30b-cloud',
+  'gemma4:31b-cloud',
+] as const
+
+export const PRO_ONLY_CLOUD_MODELS = ['qwen3.5:cloud'] as const
+
+export function pickFreeCloudModel(available: string[], preferred?: string): string | null {
+  const clouds = getCloudModels(available)
+  if (!clouds.length) return null
+  if (
+    preferred &&
+    clouds.includes(preferred) &&
+    !PRO_ONLY_CLOUD_MODELS.includes(preferred as (typeof PRO_ONLY_CLOUD_MODELS)[number])
+  ) {
+    return preferred
+  }
+  for (const id of FREE_CLOUD_MODEL_ORDER) {
+    if (clouds.includes(id)) return id
+  }
+  const fallback = clouds.find(
+    (m) => !PRO_ONLY_CLOUD_MODELS.some((pro) => m === pro || m.startsWith(`${pro.split(':')[0]}:`)),
+  )
+  return fallback ?? null
+}
