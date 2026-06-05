@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-MODEL="${1:-qwen3.5:cloud}"
+MODEL="${1:-matu-nano}"
 touch .env
 grep -v '^DEFAULT_CHAT_MODEL=' .env > .env.tmp || true
 mv .env.tmp .env

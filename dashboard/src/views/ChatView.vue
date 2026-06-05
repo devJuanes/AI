@@ -31,10 +31,11 @@ import {
   fetchChatSession,
   fetchChatSessions,
   fetchHealth,
-  filterChatModels,
   listModels,
+  modelsForTier,
   loadUseCloud,
   migrateLegacySessions,
+  normalizeMatuModelId,
   resolveChatModel,
   saveUseCloud,
   syncChatSession,
@@ -44,11 +45,12 @@ import {
 import {
   CLOUD_MODE_HINT,
   CLOUD_SIGNIN_HINT,
-  getCloudModels,
+  getPublicModelName,
   isCloudModel,
   LOCAL_MODE_HINT,
   MATU_CHAT_LIMITS,
 } from '../lib/model-display'
+import { getMatuModel, getMatuModelTagline } from '../lib/matu-models'
 
 const router = useRouter()
 const user = ref<User | null>(null)
@@ -61,8 +63,12 @@ const defaultModel = ref('')
 const models = ref<string[]>([])
 const useCloud = ref(loadUseCloud())
 const cloudAuthOk = ref(true)
-const cloudOptions = computed(() => getCloudModels(models.value))
-const hasCloud = computed(() => cloudOptions.value.length > 0)
+const tierModels = computed(() =>
+  modelsForTier(models.value, useCloud.value ? 'cloud' : 'local'),
+)
+const hasCloud = computed(() => modelsForTier(models.value, 'cloud').length > 0)
+const selectedModelName = computed(() => getPublicModelName(model.value))
+const selectedModelTagline = computed(() => getMatuModelTagline(model.value))
 const cloudReady = computed(() => hasCloud.value && cloudAuthOk.value)
 const modeHint = computed(() => (useCloud.value ? CLOUD_MODE_HINT : LOCAL_MODE_HINT))
 
@@ -292,9 +298,10 @@ async function openSession(id: string) {
     if (idx >= 0) sessions.value[idx] = merged
     else sessions.value.unshift(merged)
     if (session.model) {
-      if (isCloudModel(session.model)) useCloud.value = true
+      const sessionModel = normalizeMatuModelId(session.model)
+      if (isCloudModel(sessionModel)) useCloud.value = true
       model.value = resolveChatModel(
-        session.model,
+        sessionModel,
         models.value,
         defaultModel.value,
         useCloud.value,
@@ -470,12 +477,12 @@ onMounted(async () => {
     defaultModel.value = health.default_chat_model
     cloudAuthOk.value = health.ollama_cloud === 'ok'
     const all = await listModels()
-    models.value = filterChatModels(all, health.default_chat_model)
+    models.value = all
     if (useCloud.value && health.ollama_cloud === 'needs_signin') {
       useCloud.value = false
       saveUseCloud(false)
       error.value = CLOUD_SIGNIN_HINT
-    } else if (useCloud.value && !getCloudModels(all).length) {
+    } else if (useCloud.value && !modelsForTier(all, 'cloud').length) {
       useCloud.value = false
       saveUseCloud(false)
     }
@@ -654,9 +661,9 @@ onUnmounted(() => {
         >
           <PanelLeft class="w-4 h-4" />
         </button>
-        <div class="flex-1 flex items-center justify-center gap-2 min-w-0">
-          <MatuLogo size="sm" :show-text="false" />
-          <span class="font-medium text-matu-text truncate">Matu AI</span>
+        <div class="flex-1 flex flex-col items-center justify-center min-w-0 px-1">
+          <span class="font-medium text-matu-text truncate text-sm sm:text-base">{{ selectedModelName }}</span>
+          <span v-if="selectedModelTagline" class="text-[10px] sm:text-xs text-matu-muted truncate max-w-full">{{ selectedModelTagline }}</span>
         </div>
         <div
           class="flex items-center gap-1.5 sm:gap-2 shrink-0"
@@ -687,12 +694,14 @@ onUnmounted(() => {
           >Cloud</span>
         </div>
         <select
-          v-if="useCloud && cloudOptions.length > 1"
+          v-if="tierModels.length > 1"
           v-model="model"
-          class="sr-only sm:not-sr-only sm:text-xs sm:border sm:border-matu-border sm:rounded-lg sm:px-2 sm:py-1 sm:max-w-[8rem] sm:truncate"
-          title="Modelo cloud"
+          class="text-xs border border-matu-border rounded-lg px-2 py-1 max-w-[7.5rem] sm:max-w-[9rem] truncate shrink-0 bg-white"
+          :title="useCloud ? 'Modelo Matu Cloud' : 'Modelo local'"
         >
-          <option v-for="m in cloudOptions" :key="m" :value="m">Cloud</option>
+          <option v-for="m in tierModels" :key="m" :value="m">
+            {{ getMatuModel(m)?.name ?? m }}
+          </option>
         </select>
       </header>
       <p

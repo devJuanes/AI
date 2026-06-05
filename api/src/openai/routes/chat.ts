@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify'
+import { DEFAULT_MATU_MODEL_ID } from '../../lib/matu-models.js'
 import { DASHBOARD_CHAT_KEY_ID } from '../../middleware/auth.js'
 import {
   buildChatCompletionResponse,
   logUsage,
-  ollamaFetch,
   estimateTokens,
+  listOllamaModels,
 } from '../../services/ollama.js'
+import { chatWithFailover, resolveRequestModel, streamChatWithFailover } from '../../services/ollama-chat.js'
 import { validationError, serviceUnavailable } from '../errors.js'
 import { chatCompletionSchema } from '../schemas/index.js'
 import { normalizeChatMessages, messagesToPrompt } from '../utils/messages.js'
@@ -33,6 +35,7 @@ export async function chatRoutes(app: FastifyInstance) {
     const body = parsed.data
     const apiKeyId = request.apiKey!.apiKeyId
     const trackUsage = apiKeyId !== DASHBOARD_CHAT_KEY_ID
+    const matuModelId = body.model || config.defaultChatModel || DEFAULT_MATU_MODEL_ID
 
     if (body.n > 1) {
       return validationError(reply, 'n > 1 no soportado aún. Usa n=1.', 'n')
@@ -49,10 +52,17 @@ export async function chatRoutes(app: FastifyInstance) {
     let messages = normalizeChatMessages(body.messages)
     const isDashboard = apiKeyId === DASHBOARD_CHAT_KEY_ID
 
-    const chatModel = body.model
-
     if (isDashboard && messages.length > DASHBOARD_MAX_MESSAGES) {
       messages = messages.slice(-DASHBOARD_MAX_MESSAGES)
+    }
+
+    const ollamaNames = (await listOllamaModels()).map((m) => m.name)
+    let entry: ReturnType<typeof resolveRequestModel>['entry']
+    let primaryOllama: string
+    try {
+      ;({ entry, primaryOllama } = resolveRequestModel(matuModelId, ollamaNames))
+    } catch (err) {
+      return validationError(reply, err instanceof Error ? err.message : 'Modelo inválido', 'model')
     }
 
     const maxTokens =
@@ -71,7 +81,7 @@ export async function chatRoutes(app: FastifyInstance) {
     })
 
     if (isDashboard) {
-      options = applyDashboardOllamaTuning(options, chatModel)
+      options = applyDashboardOllamaTuning(options, primaryOllama)
       if (options.temperature === undefined) options.temperature = 0.55
       if (options.repeat_penalty === undefined) options.repeat_penalty = 1.15
     }
@@ -79,7 +89,7 @@ export async function chatRoutes(app: FastifyInstance) {
     if (isDashboard) {
       messages.unshift({
         role: 'system',
-        content: isCloudModel(chatModel)
+        content: entry.tier === 'cloud'
           ? buildMatuSystemPromptCompact(config.appTimezone)
           : buildMatuSystemPromptMini(config.appTimezone),
       })
@@ -87,12 +97,12 @@ export async function chatRoutes(app: FastifyInstance) {
 
     const format = pickOllamaFormat(body.response_format)
     const ollamaBody: Record<string, unknown> = {
-      model: chatModel,
+      model: primaryOllama,
       messages: messages.map((m) => ({ role: m.role === 'developer' ? 'system' : m.role, content: m.content })),
       stream: body.stream,
       options,
       ...(format ? { format } : {}),
-      ...(supportsOllamaThinking(chatModel) && !isDashboard ? { think: trackUsage } : {}),
+      ...(supportsOllamaThinking(primaryOllama) && !isDashboard ? { think: trackUsage } : {}),
     }
 
     const promptText = messagesToPrompt(messages)
@@ -102,30 +112,23 @@ export async function chatRoutes(app: FastifyInstance) {
       const run = async () => {
         if (body.stream) {
           const completionId = openAIId('chatcmpl')
-          await streamOllamaChat({
-            reply,
-            model: chatModel,
-            completionId,
-            ollamaBody,
-            promptText,
-            endpoint,
-            onComplete: async (promptTokens, completionTokens) => {
-              if (trackUsage) await logUsage(apiKeyId, chatModel, endpoint, promptTokens, completionTokens)
-            },
+          await streamChatWithFailover(entry, ollamaNames, ollamaBody, async (ollamaModel, streamBody) => {
+            await streamOllamaChat({
+              reply,
+              model: matuModelId,
+              completionId,
+              ollamaBody: streamBody,
+              promptText,
+              endpoint,
+              onComplete: async (promptTokens, completionTokens) => {
+                if (trackUsage) await logUsage(apiKeyId, matuModelId, endpoint, promptTokens, completionTokens)
+              },
+            })
           })
           return
         }
 
-        const res = await ollamaFetch('/api/chat', {
-          method: 'POST',
-          body: JSON.stringify({ ...ollamaBody, stream: false }),
-        })
-
-        if (!res.ok) {
-          const errText = await res.text()
-          return serviceUnavailable(reply, formatOllamaError(errText, res.status))
-        }
-
+        const { res } = await chatWithFailover(entry, ollamaNames, { ...ollamaBody, stream: false })
         const data = (await res.json()) as {
           message?: { content?: string; thinking?: string }
           eval_count?: number
@@ -135,29 +138,29 @@ export async function chatRoutes(app: FastifyInstance) {
         let content = data.message?.content ?? ''
         let reasoning = data.message?.thinking ?? ''
         if (!reasoning && content) {
-          const parsed = (await import('../utils/thinking.js')).parseInlineThinking(content)
-          reasoning = parsed.reasoning
-          content = parsed.content
+          const parsedThink = (await import('../utils/thinking.js')).parseInlineThinking(content)
+          reasoning = parsedThink.reasoning
+          content = parsedThink.content
         }
         const promptTokens = data.prompt_eval_count ?? estimateTokens(promptText)
         const completionTokens = data.eval_count ?? estimateTokens(content)
 
-        if (trackUsage) await logUsage(apiKeyId, chatModel, endpoint, promptTokens, completionTokens)
+        if (trackUsage) await logUsage(apiKeyId, matuModelId, endpoint, promptTokens, completionTokens)
 
         return buildChatCompletionResponse({
-          model: chatModel,
+          model: matuModelId,
           content,
           promptTokens,
           completionTokens,
         })
       }
 
-      if (isDashboard && !isCloudModel(chatModel)) {
+      if (isDashboard && entry.tier === 'local') {
         return await withDashboardOllamaLock(run)
       }
       return await run()
     } catch (err) {
-      const raw = err instanceof Error ? err.message : 'Ollama no disponible'
+      const raw = err instanceof Error ? err.message : 'Modelo no disponible'
       return serviceUnavailable(reply, formatOllamaError(raw))
     }
   })

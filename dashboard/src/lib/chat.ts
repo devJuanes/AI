@@ -1,12 +1,12 @@
 import { api, getToken } from './api'
 import { getMatuApiOrigin, matuV1 } from './matu-urls'
 import { DEFAULT_MODEL } from './constants'
+import { isCloudModel } from './model-display'
 import {
-  getCloudModels,
-  getLocalModels,
-  isCloudModel,
-  pickFreeCloudModel,
-} from './model-display'
+  DEFAULT_MATU_CLOUD_ID,
+  DEFAULT_MATU_LOCAL_ID,
+  getMatuModel,
+} from './matu-models'
 
 const USE_CLOUD_KEY = 'matu_ai_use_cloud'
 
@@ -160,66 +160,40 @@ export async function listModels(): Promise<string[]> {
   return models.map((m) => m.id)
 }
 
-export function filterChatModels(models: string[], preferred?: string): string[] {
-  // Respeta el modelo del API (.env) aunque existan modelos cloud en Ollama
-  if (preferred && models.includes(preferred)) {
-    const others = models.filter((m) => m !== preferred && isCloudModel(m))
-    return [
-      preferred,
-      ...others.sort((a, b) => modelSizeRank(a) - modelSizeRank(b) || a.localeCompare(b)),
-    ]
-  }
-
-  const cloud = models.filter(isCloudModel)
-  if (cloud.length) {
-    return cloud.sort((a, b) => modelSizeRank(a) - modelSizeRank(b) || a.localeCompare(b))
-  }
-
-  const local = models.filter(
-    (m) => !/70b|72b|120b|480b/i.test(m) && /1b|3b|4b|8b/i.test(m),
-  )
-  return local.length ? local : models.slice(0, 1)
+const LEGACY_MODEL_IDS: Record<string, string> = {
+  'llama3.2:1b': 'matu-nano',
+  'llama3.2:latest': 'matu-nano',
+  'qwen3:4b': 'matu-core',
+  'gpt-oss:20b-cloud': 'matu-cloud',
+  'nemotron-3-nano:30b-cloud': 'matu-cloud',
+  'gemma4:31b-cloud': 'matu-cloud',
+  'qwen3.5:cloud': 'matu-cloud-pro',
 }
 
-function modelSizeRank(id: string): number {
-  const m = id.match(/(\d+)b/i)
-  return m ? Number(m[1]) : 99
+export function normalizeMatuModelId(id: string): string {
+  return LEGACY_MODEL_IDS[id] ?? id
 }
 
-export function pickCloudModel(available: string[], preferred?: string): string | null {
-  return pickFreeCloudModel(available, preferred)
+export function modelsForTier(available: string[], tier: 'local' | 'cloud'): string[] {
+  return available.filter((id) => getMatuModel(id)?.tier === tier)
 }
 
-export function pickLocalModel(available: string[], preferred: string): string {
-  const locals = getLocalModels(available)
-  const pool = locals.length ? locals : available
-  return pickDefaultModel(pool, preferred)
-}
-
-/** Respeta el switch Local/Cloud y sesiones guardadas */
+/** Respeta switch Local/Cloud y sesiones (ids públicos Matu) */
 export function resolveChatModel(
   selected: string,
   available: string[],
   preferred: string,
   useCloud: boolean,
 ): string {
-  if (useCloud) {
-    return pickCloudModel(available, isCloudModel(selected) ? selected : undefined) ?? pickLocalModel(available, preferred)
-  }
-  if (isCloudModel(selected)) {
-    return pickLocalModel(available, preferred)
-  }
-  return pickDefaultModel(available, selected)
-}
+  const tier = useCloud ? 'cloud' : 'local'
+  const tierModels = modelsForTier(available, tier)
+  const fallback = useCloud ? DEFAULT_MATU_CLOUD_ID : DEFAULT_MATU_LOCAL_ID
 
-export function pickDefaultModel(available: string[], preferred: string): string {
-  const list = filterChatModels(available, preferred)
-  if (list.includes(preferred)) return preferred
-  const base = preferred.split(':')[0]
-  const match = list.find((m) => m === base || m.startsWith(`${base}:`))
-  if (match) return match
-  const tiny = list.find((m) => /4b|8b|1b|3b/i.test(m))
-  return tiny ?? list[0] ?? preferred
+  const normalized = normalizeMatuModelId(selected)
+  if (normalized && tierModels.includes(normalized)) return normalized
+  if (preferred && tierModels.includes(preferred)) return preferred
+  if (tierModels.includes(fallback)) return fallback
+  return tierModels[0] ?? fallback
 }
 
 export async function* streamChatCompletion(
