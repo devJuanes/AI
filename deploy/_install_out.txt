@@ -1,0 +1,192 @@
+﻿
+>>> cd /root/apps/matu-ai && git pull origin main
+Updating b6e94ce..77263ed
+Fast-forward
+ .env.example                       |  2 +-
+ api/src/config.ts                  |  2 +-
+ api/src/lib/matu-models.ts         | 92 ++++++++++++++++++++++++++++++++++++++
+ api/src/openai/routes/chat.ts      | 71 +++++++++++++++--------------
+ api/src/openai/routes/models.ts    | 47 ++++++++++++++++---
+ api/src/services/ollama-chat.ts    | 87 +++++++++++++++++++++++++++++++++++
+ api/src/services/ollama-warmup.ts  |  9 +++-
+ dashboard/src/lib/chat.ts          | 80 +++++++++++----------------------
+ dashboard/src/lib/constants.ts     |  2 +-
+ dashboard/src/lib/matu-models.ts   | 55 +++++++++++++++++++++++
+ dashboard/src/lib/model-display.ts | 49 +++++---------------
+ dashboard/src/views/ChatView.vue   | 39 +++++++++-------
+ deploy/fix-env-model.sh            |  2 +-
+ deploy/install-local-models.sh     | 24 ++++++++++
+ 14 files changed, 409 insertions(+), 152 deletions(-)
+ create mode 100644 api/src/lib/matu-models.ts
+ create mode 100644 api/src/services/ollama-chat.ts
+ create mode 100644 dashboard/src/lib/matu-models.ts
+ create mode 100644 deploy/install-local-models.sh
+From https://github.com/devJuanes/AI
+ * branch            main       -> FETCH_HEAD
+   b6e94ce..77263ed  main       -> origin/main
+
+>>> cd /root/apps/matu-ai && bash deploy/install-local-models.sh
+==> Modelos locales Matu (ligeros, 1 cargado a la vez)
+==> Modelos Matu Cloud (plan Free + failover)
+==> Tune Ollama
+Configurando Ollama (8 cores, parallel=1, cloud_only=0)...
+Modelo local opcional (dev/fallback)...
+Modelos instalados:
+NAME                         ID              SIZE      MODIFIED               
+llama3.2:1b                  baf6a787fdff    1.3 GB    Less than a second ago    
+gemma4:31b-cloud             c382fbfbc73b    -         5 seconds ago             
+nemotron-3-nano:30b-cloud    01d0d069a149    -         7 seconds ago             
+qwen3:4b                     359d7dd4bcda    2.5 GB    9 seconds ago             
+gpt-oss:20b-cloud            875e8e3a629a    -         8 seconds ago             
+qwen3.5:cloud                a7bf6f7891c3    -         2 days ago                
+llama3.2:latest              a80c4f17acd5    2.0 GB    3 days ago                
+Listo.
+==> Default API: matu-nano
+OK DEFAULT_CHAT_MODEL=matu-nano
+Listo. Modelos:
+NAME                         ID              SIZE      MODIFIED               
+llama3.2:1b                  baf6a787fdff    1.3 GB    Less than a second ago    
+gemma4:31b-cloud             c382fbfbc73b    -         5 seconds ago             
+nemotron-3-nano:30b-cloud    01d0d069a149    -         7 seconds ago             
+qwen3:4b                     359d7dd4bcda    2.5 GB    9 seconds ago             
+gpt-oss:20b-cloud            875e8e3a629a    -         9 seconds ago             
+qwen3.5:cloud                a7bf6f7891c3    -         2 days ago                
+llama3.2:latest              a80c4f17acd5    2.0 GB    3 days ago                
+[?2026h[?25l[1Gpulling manifest Ôáï [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÖ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╣ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá© [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╝ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá┤ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáª [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáº [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáç [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÅ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáï [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÖ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╣ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá© [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╝ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá┤ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáª [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáº [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest [K
+pulling 74701a8c35f6: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ 1.3 GB                         [K
+pulling 966de95ca8a6: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ 1.4 KB                         [K
+pulling fcc5a6bec9da: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ 7.7 KB                         [K
+pulling a70ff7e570d9: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ 6.0 KB                         [K
+pulling 4f659a1e86d7: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  485 B                         [K
+verifying sha256 digest [K
+writing manifest [K
+success [K[?25h[?2026l
+[?2026h[?25l[1Gpulling manifest Ôáï [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÖ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╣ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá© [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╝ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest [K
+pulling 3e4cb1417446: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ 2.5 GB                         [K
+pulling 2d54db2b9bb2: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ 1.5 KB                         [K
+pulling d18a5cc71b84: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  11 KB                         [K
+pulling cff3f395ef37: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  120 B                         [K
+pulling e18a783aae55: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  487 B                         [K
+verifying sha256 digest [K
+writing manifest [K
+success [K[?25h[?2026l
+[?2026h[?25l[1Gpulling manifest Ôáï [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÖ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╣ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá© [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╝ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest [K
+pulling cf2ed067e945: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  381 B                         [K
+verifying sha256 digest [K
+writing manifest [K
+success [K[?25h[?2026l
+[?2026h[?25l[1Gpulling manifest Ôáï [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÖ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╣ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá© [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╝ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá┤ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáª [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáº [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáç [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÅ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáï [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÖ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╣ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest [K
+pulling e52bf3101a83: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  418 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling e52bf3101a83: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  418 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling e52bf3101a83: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  418 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling e52bf3101a83: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  418 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling e52bf3101a83: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  418 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling e52bf3101a83: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  418 B                         [K
+verifying sha256 digest [K
+writing manifest [K
+success [K[?25h[?2026l
+[?2026h[?25l[1Gpulling manifest Ôáï [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÖ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╣ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá© [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá╝ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôá┤ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáª [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáº [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest Ôáç [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest ÔáÅ [K[?25h[?2026l[?2026h[?25l[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K[?25h[?2026l[?2026h[?25l[A[1Gpulling manifest [K
+pulling 5eb7ea60f4a3: 100% ÔûòÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûÅ  342 B                         [K
+verifying sha256 digest [K
+writing manifest [K
+success [K[?25h[?2026l
+
+>>> cd /root/apps/matu-ai && bash deploy.sh --no-pull
+==> Matu AI deploy
+    Directorio: /root/apps/matu-ai
+
+==> npm ci
+
+added 218 packages, and audited 221 packages in 20s
+
+54 packages are looking for funding
+  run `npm fund` for details
+
+2 critical severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+==> Build API
+
+> api@1.0.0 build
+> tsc
+
+
+==> PM2 restart
+[PM2] Applying action restartProcessId on app [matu-ai-api](ids: [ 0 ])
+[PM2] [matu-ai-api](0) Ô£ô
+ÔöîÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé id Ôöé name           Ôöé namespace   Ôöé version Ôöé mode    Ôöé pid      Ôöé uptime Ôöé Ôå║    Ôöé status    Ôöé cpu      Ôöé mem      Ôöé user     Ôöé watching Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0  Ôöé matu-ai-api    Ôöé default     Ôöé N/A     Ôöé fork    Ôöé 96079    Ôöé 0s     Ôöé 32   Ôöé online    Ôöé 0%       Ôöé 19.5mb   Ôöé root     Ôöé disabled Ôöé
+Ôöé 1  Ôöé matubyte       Ôöé default     Ôöé 16.2.6  Ôöé fork    Ôöé 2646     Ôöé 2D     Ôöé 1    Ôöé online    Ôöé 0%       Ôöé 225.9mb  Ôöé root     Ôöé disabled Ôöé
+Ôöé 6  Ôöé paymatubyte    Ôöé default     Ôöé 1.0.0   Ôöé fork    Ôöé 73549    Ôöé 14h    Ôöé 7    Ôöé online    Ôöé 0%       Ôöé 102.2mb  Ôöé root     Ôöé disabled Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+
+==> Build y publicar frontend
+Build dashboard (VITE_API_URL=https://ai.matubyte.com)...
+vite v8.0.16 building client environment for production...
+[2K
+transforming...Ô£ô 1792 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                     0.94 kB Ôöé gzip:  0.50 kB
+dist/assets/ChatView-CayjKCPz.css                   0.71 kB Ôöé gzip:  0.33 kB
+dist/assets/index-B8UzSzHP.css                     41.06 kB Ôöé gzip:  7.90 kB
+dist/assets/constants-D5XmioPh.js                   0.03 kB Ôöé gzip:  0.05 kB
+dist/assets/menu-B_wQ42tU.js                        0.18 kB Ôöé gzip:  0.15 kB
+dist/assets/credit-card-BsvqMNYU.js                 0.20 kB Ôöé gzip:  0.18 kB
+dist/assets/message-square-CZMWHbx6.js              0.23 kB Ôöé gzip:  0.20 kB
+dist/assets/copy-BvMxYDJp.js                        0.23 kB Ôöé gzip:  0.20 kB
+dist/assets/matu-urls-CNTmjtiG.js                   0.23 kB Ôöé gzip:  0.17 kB
+dist/assets/send-CWsc7GnD.js                        0.29 kB Ôöé gzip:  0.23 kB
+dist/assets/flask-conical-CicffaVP.js               0.30 kB Ôöé gzip:  0.23 kB
+dist/assets/refresh-cw-BMMEeNTy.js                  0.32 kB Ôöé gzip:  0.22 kB
+dist/assets/key-round-LyxZWVJw.js                   0.35 kB Ôöé gzip:  0.26 kB
+dist/assets/log-out-CG3yhxsH.js                     0.45 kB Ôöé gzip:  0.28 kB
+dist/assets/MatuLogo-BfDo48hk.js                    1.06 kB Ôöé gzip:  0.62 kB
+dist/assets/playground-Dlw4tfSK.js                  1.22 kB Ôöé gzip:  0.72 kB
+dist/assets/createLucideIcon-DpROiLhJ.js            1.30 kB Ôöé gzip:  0.74 kB
+dist/assets/api-DMBBrnvQ.js                         1.56 kB Ôöé gzip:  0.65 kB
+dist/assets/BillingPaymentResultView-Dx2g_EXh.js    2.25 kB Ôöé gzip:  1.22 kB
+dist/assets/LoginView-Ddyt2jnE.js                   2.37 kB Ôöé gzip:  1.13 kB
+dist/assets/HomeView-0mcaiTGH.js                    2.50 kB Ôöé gzip:  1.08 kB
+dist/assets/RegisterView-DK3hMCAt.js                2.64 kB Ôöé gzip:  1.17 kB
+dist/assets/ConfirmDeleteModal-uSezPYU1.js          3.22 kB Ôöé gzip:  1.59 kB
+dist/assets/PlaygroundView-ChKUMNvE.js              5.67 kB Ôöé gzip:  2.43 kB
+dist/assets/DashboardShell-AuSiDXch.js              5.86 kB Ôöé gzip:  2.21 kB
+dist/assets/DashboardView-fFgNBCxC.js               6.15 kB Ôöé gzip:  2.55 kB
+dist/assets/docs-CIGNpv12.js                        6.85 kB Ôöé gzip:  2.66 kB
+dist/assets/DocsView-k7aYn1Qg.js                    7.76 kB Ôöé gzip:  3.02 kB
+dist/assets/BillingView-zGWFksBj.js                 9.02 kB Ôöé gzip:  3.45 kB
+dist/assets/UsageView-DBWJNdJi.js                  10.79 kB Ôöé gzip:  3.89 kB
+dist/assets/ChatView-qUDa0CnC.js                   25.89 kB Ôöé gzip:  9.29 kB
+dist/assets/index-BEIDkoaN.js                     101.45 kB Ôöé gzip: 39.54 kB
+
+Ô£ô built in 1.04s
+Copiando a /var/www/matu-ai/chat/dist ...
+Frontend publicado - https://chat.matubyte.com
+
+==> Verificaci├│n
+{"status":"ok","service":"matu-ai","version":"1.0.0","openai_compatible":true,"ollama":"ok","ollama_cloud":"ok","matudb":"ok","docs":"https://chat.matubyte.com/docs","default_chat_model":"matu-nano"}
+OK  https://ai.matubyte.com/health
+
+Listo. Abre https://chat.matubyte.com y recarga con Ctrl+Shift+R
+
+>>> curl -s http://127.0.0.1:3001/health
+{"status":"ok","service":"matu-ai","version":"1.0.0","openai_compatible":true,"ollama":"ok","ollama_cloud":"ok","matudb":"ok","docs":"https://chat.matubyte.com/docs","default_chat_model":"matu-nano"}
+>>> curl -s http://127.0.0.1:3001/v1/models -H 'Authorization: Bearer x' 2>/dev/null | head -c 800 || true
+{"error":{"message":"Incorrect API key provided. You can find your API key at https://chat.matubyte.com/dashboard.","type":"invalid_request_error","param":null,"code":"invalid_api_key"}}
