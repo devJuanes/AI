@@ -118,6 +118,12 @@ Cuando respondas sobre temas especializados:
 - No muestres tu razonamiento interno. Solo entrega la respuesta final, pulida y lista.`
 }
 
+/** Prompt mínimo — menor latencia en modelo local del VPS */
+export function buildMatuSystemPromptMini(timeZone = DEFAULT_TIMEZONE): string {
+  const dateLine = formatCurrentDateLine(timeZone)
+  return `Eres Matu AI (MatuByte, Colombia). ${dateLine} Español natural, directo y cálido. Solo la respuesta final.`
+}
+
 /** Prompt corto — menos latencia (TTFT) en modelos cloud del chat web */
 export function buildMatuSystemPromptCompact(timeZone = DEFAULT_TIMEZONE): string {
   const dateLine = formatCurrentDateLine(timeZone)

@@ -63,12 +63,20 @@ app.get('/health', async () => {
   } catch {
     matudb = 'not_configured'
   }
+  const { isOllamaCloudSignedIn } = await import('./services/ollama-cloud.js')
+  const hasCloudModels = ollama === 'ok'
+  let ollama_cloud: 'ok' | 'needs_signin' | 'unavailable' = 'unavailable'
+  if (hasCloudModels) {
+    ollama_cloud = isOllamaCloudSignedIn() ? 'ok' : 'needs_signin'
+  }
+
   return {
     status: 'ok',
     service: 'matu-ai',
     version: '1.0.0',
     openai_compatible: true,
     ollama,
+    ollama_cloud,
     matudb,
     docs: 'https://chat.matubyte.com/docs',
     default_chat_model: config.defaultChatModel,

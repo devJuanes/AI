@@ -118,15 +118,27 @@ export function createThinkStreamParser() {
   return { feed, flush }
 }
 
-export async function fetchDefaultModel(): Promise<string> {
+export interface HealthInfo {
+  default_chat_model: string
+  ollama_cloud: 'ok' | 'needs_signin' | 'unavailable'
+}
+
+export async function fetchHealth(): Promise<HealthInfo> {
   try {
     const res = await fetch(`${API_URL}/health`)
     const data = await res.json()
-    if (data.default_chat_model) return data.default_chat_model as string
+    return {
+      default_chat_model: (data.default_chat_model as string) ?? DEFAULT_MODEL,
+      ollama_cloud: (data.ollama_cloud as HealthInfo['ollama_cloud']) ?? 'unavailable',
+    }
   } catch {
-    /* fallback */
+    return { default_chat_model: DEFAULT_MODEL, ollama_cloud: 'unavailable' }
   }
-  return DEFAULT_MODEL
+}
+
+export async function fetchDefaultModel(): Promise<string> {
+  const health = await fetchHealth()
+  return health.default_chat_model
 }
 
 export async function listModels(): Promise<string[]> {
@@ -227,7 +239,7 @@ export async function* streamChatCompletion(
       model,
       messages: messages.map(({ role, content }) => ({ role, content })),
       stream: true,
-      max_tokens: 512,
+      max_tokens: 384,
       temperature: 0.55,
     }),
   })

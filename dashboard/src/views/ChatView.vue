@@ -30,7 +30,7 @@ import {
   deleteChatSession,
   fetchChatSession,
   fetchChatSessions,
-  fetchDefaultModel,
+  fetchHealth,
   filterChatModels,
   listModels,
   loadUseCloud,
@@ -43,6 +43,7 @@ import {
 } from '../lib/chat'
 import {
   CLOUD_MODE_HINT,
+  CLOUD_SIGNIN_HINT,
   getCloudModels,
   isCloudModel,
   LOCAL_MODE_HINT,
@@ -59,13 +60,16 @@ const model = ref('')
 const defaultModel = ref('')
 const models = ref<string[]>([])
 const useCloud = ref(loadUseCloud())
+const cloudAuthOk = ref(true)
 const cloudOptions = computed(() => getCloudModels(models.value))
 const hasCloud = computed(() => cloudOptions.value.length > 0)
+const cloudReady = computed(() => hasCloud.value && cloudAuthOk.value)
 const modeHint = computed(() => (useCloud.value ? CLOUD_MODE_HINT : LOCAL_MODE_HINT))
 
 function syncModelFromMode() {
-  if (useCloud.value && !hasCloud.value) {
+  if (useCloud.value && !cloudReady.value) {
     useCloud.value = false
+    if (!cloudAuthOk.value) error.value = CLOUD_SIGNIN_HINT
   }
   model.value = resolveChatModel(
     model.value,
@@ -76,7 +80,14 @@ function syncModelFromMode() {
   saveUseCloud(useCloud.value)
 }
 
-watch(useCloud, () => syncModelFromMode())
+watch(useCloud, (on) => {
+  if (on && !cloudAuthOk.value) {
+    useCloud.value = false
+    error.value = CLOUD_SIGNIN_HINT
+    return
+  }
+  syncModelFromMode()
+})
 const streaming = ref(false)
 const awaitingFirstToken = ref(false)
 const error = ref('')
@@ -455,11 +466,16 @@ onMounted(async () => {
       await migrateLegacySessions(me.user.id)
       await loadSessionList()
     }
-    const preferred = await fetchDefaultModel()
-    defaultModel.value = preferred
+    const health = await fetchHealth()
+    defaultModel.value = health.default_chat_model
+    cloudAuthOk.value = health.ollama_cloud === 'ok'
     const all = await listModels()
-    models.value = filterChatModels(all, preferred)
-    if (useCloud.value && !getCloudModels(all).length) {
+    models.value = filterChatModels(all, health.default_chat_model)
+    if (useCloud.value && health.ollama_cloud === 'needs_signin') {
+      useCloud.value = false
+      saveUseCloud(false)
+      error.value = CLOUD_SIGNIN_HINT
+    } else if (useCloud.value && !getCloudModels(all).length) {
       useCloud.value = false
       saveUseCloud(false)
     }
@@ -655,7 +671,7 @@ onUnmounted(() => {
             role="switch"
             :aria-checked="useCloud"
             :aria-label="useCloud ? 'Modo Cloud activo' : 'Modo local activo'"
-            :disabled="!hasCloud && !useCloud"
+            :disabled="!cloudReady && !useCloud"
             class="relative w-11 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-matu-blue/40 disabled:opacity-40"
             :class="useCloud ? 'bg-matu-blue' : 'bg-matu-border'"
             @click="useCloud = !useCloud"
@@ -680,10 +696,11 @@ onUnmounted(() => {
         </select>
       </header>
       <p
-        v-if="useCloud || !hasCloud"
+        v-if="useCloud || !cloudReady"
         class="text-center text-[10px] sm:text-xs text-matu-muted px-4 py-1 border-b border-matu-border/60 shrink-0"
       >
-        <template v-if="!hasCloud">Cloud no disponible en el servidor — usa modo Local.</template>
+        <template v-if="!cloudAuthOk && hasCloud">{{ CLOUD_SIGNIN_HINT }}</template>
+        <template v-else-if="!hasCloud">Cloud no disponible en el servidor — usa modo Local.</template>
         <template v-else-if="useCloud">
           {{ modeHint }} · Máx. {{ MATU_CHAT_LIMITS.maxTokensPerReply }} tokens/respuesta,
           {{ MATU_CHAT_LIMITS.maxMessagesInContext }} mensajes de contexto.

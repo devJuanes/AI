@@ -9,10 +9,13 @@ export const LOCAL_MODE_HINT =
 
 /** Límites del chat web Matu (además de la cuota Ollama) */
 export const MATU_CHAT_LIMITS = {
-  maxTokensPerReply: 512,
-  maxMessagesInContext: 20,
+  maxTokensPerReply: 384,
+  maxMessagesInContext: 10,
   cloudConcurrentOnServer: 1,
 } as const
+
+export const CLOUD_SIGNIN_HINT =
+  'Cloud requiere autorizar el servidor: en el VPS ejecuta `ollama signin` y abre el enlace en tu navegador.'
 
 export function getPublicModelName(_modelId?: string): string {
   return MATU_AI_PUBLIC_NAME

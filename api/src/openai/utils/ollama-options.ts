@@ -39,15 +39,16 @@ export function applyDashboardOllamaTuning(
   if (cloud) {
     return {
       ...options,
-      num_predict: options.num_predict ?? 512,
+      num_predict: options.num_predict ?? 384,
     }
   }
   const threads = Math.max(4, Math.min(8, (Number(process.env.OLLAMA_NUM_THREAD) || 8)))
   return {
     ...options,
-    num_ctx: options.num_ctx ?? 2048,
-    num_predict: options.num_predict ?? 512,
+    num_ctx: options.num_ctx ?? 1024,
+    num_predict: options.num_predict ?? 384,
     num_thread: options.num_thread ?? threads,
+    num_batch: options.num_batch ?? 512,
   }
 }
 

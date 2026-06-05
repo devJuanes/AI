@@ -12,14 +12,15 @@ import { normalizeChatMessages, messagesToPrompt } from '../utils/messages.js'
 import { applyDashboardOllamaTuning, pickOllamaFormat, toOllamaOptions } from '../utils/ollama-options.js'
 import { openAIId } from '../utils/ids.js'
 import { streamOllamaChat } from '../utils/streaming.js'
-import { buildMatuSystemPromptCompact } from '../utils/matu-prompt.js'
+import { buildMatuSystemPromptCompact, buildMatuSystemPromptMini } from '../utils/matu-prompt.js'
+import { formatOllamaError } from '../../services/ollama-cloud.js'
 import { supportsOllamaThinking } from '../utils/thinking.js'
 import { isCloudModel } from '../utils/cloud-models.js'
 import { withDashboardOllamaLock } from '../../services/ollama-queue.js'
 import { config } from '../../config.js'
 
-const DASHBOARD_MAX_MESSAGES = 20
-const DASHBOARD_DEFAULT_MAX_TOKENS = 512
+const DASHBOARD_MAX_MESSAGES = 10
+const DASHBOARD_DEFAULT_MAX_TOKENS = 384
 
 export async function chatRoutes(app: FastifyInstance) {
   app.post('/v1/chat/completions', async (request, reply) => {
@@ -78,7 +79,9 @@ export async function chatRoutes(app: FastifyInstance) {
     if (isDashboard) {
       messages.unshift({
         role: 'system',
-        content: buildMatuSystemPromptCompact(config.appTimezone),
+        content: isCloudModel(chatModel)
+          ? buildMatuSystemPromptCompact(config.appTimezone)
+          : buildMatuSystemPromptMini(config.appTimezone),
       })
     }
 
@@ -120,7 +123,7 @@ export async function chatRoutes(app: FastifyInstance) {
 
         if (!res.ok) {
           const errText = await res.text()
-          return serviceUnavailable(reply, errText || 'Error de Ollama')
+          return serviceUnavailable(reply, formatOllamaError(errText, res.status))
         }
 
         const data = (await res.json()) as {
@@ -154,7 +157,8 @@ export async function chatRoutes(app: FastifyInstance) {
       }
       return await run()
     } catch (err) {
-      return serviceUnavailable(reply, err instanceof Error ? err.message : 'Ollama no disponible')
+      const raw = err instanceof Error ? err.message : 'Ollama no disponible'
+      return serviceUnavailable(reply, formatOllamaError(raw))
     }
   })
 }
